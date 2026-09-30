@@ -32,25 +32,82 @@
 
   // Challenge modes. "kinds" limits which item types can roll.
   // "excludes" lists modes that cannot be on at the same time.
+  // "note" marks modes whose rules differ between groups.
+  const VARIES = 'Rules for this mode differ between players and groups. Agree on the exact rules before you start.';
   const MODES = [
-    { id: 'ironman', name: 'Iron Man', kinds: ['t'], excludes: ['upe'],
-      rule: 'Tiered items only. No UT or ST gear.' },
-    { id: 'upe', name: 'UPE', long: 'Untiered Player Experience', kinds: ['ut', 'st'], excludes: ['ironman'],
-      rule: 'No tiered items. Only UT or ST gear from drops.' },
-    { id: 'ppe', name: 'PPE', long: 'Pro Player Experience',
-      rule: 'Fresh character. No vault, no trading, no items from other players. Equip only what you loot yourself. Pets are allowed.' },
+    { id: 'ppe', name: 'PPE', long: 'Pet Player Experience',
+      summary: 'Fresh character. Use only what this character loots. Pet allowed.',
+      details: [
+        'Start a new level 1 character.',
+        'No trading, and no items from your vault, gift chest or other characters.',
+        'Equip only items that drop for this character.',
+        'Your pet and cosmetics (skins, dyes, cloths) are allowed.',
+        'Common extra rules: no guild or Discord dungeons, no leeching, forge only with materials and blueprints found on this run.',
+        'Daily login, mission, event and shop rewards are usually avoided.',
+      ],
+      note: 'Originally called "Pro Player Experience" by NeutralMan.' },
     { id: 'npe', name: 'NPE', long: 'No Pet Experience',
-      rule: 'No pet equipped or fed. Rely on natural healing, dodging and class utility.' },
+      summary: 'PPE rules without a pet.',
+      details: [
+        'All PPE rules apply.',
+        'No pet: do not equip, feed or use one.',
+        'Some players run it on a brand new account ("New Player Experience"), which also means no pet.',
+      ] },
+    { id: 'upe', name: 'UPE', long: 'Untiered Player Experience', kinds: ['ut', 'st'], excludes: ['ironman', 'tpe'],
+      summary: 'PPE rules, but never equip tiered gear.',
+      details: [
+        'All PPE rules apply.',
+        'Drop your starter gear. Start with only a T0 weapon and no ability, armor or ring.',
+        'Never equip tiered items. Only UT and ST gear.',
+        'A slot stays empty until you find a UT or ST item for it.',
+      ] },
+    { id: 'tpe', name: 'TPE', long: 'Tiered Player Experience', kinds: ['t'], excludes: ['upe'],
+      summary: 'PPE rules, tiered gear only, upgraded in tier order.',
+      details: [
+        'All PPE rules apply.',
+        'Only equip tiered items. No UT or ST gear.',
+        'Upgrade one tier at a time. You cannot skip a tier.',
+      ] },
+    { id: 'ironman', name: 'Iron Man', long: 'Tiered only', kinds: ['t'], excludes: ['upe'],
+      summary: 'Tiered items only. No UT or ST gear.',
+      details: [
+        'Only tiered items can be equipped.',
+        'No UT or ST gear, even if it drops.',
+        'Unlike TPE, you may skip tiers.',
+      ] },
     { id: 'hpe', name: 'HPE', long: 'Hardcore Player Experience',
-      rule: 'Hardcore rules. One mistake or a forbidden action ends the run.' },
-    { id: 'tpe', name: 'TPE', long: 'Trade Player Experience',
-      rule: 'Gear only through trades with specific people or friends. No equipping your own drops.' },
+      summary: 'One mistake or forbidden action ends the run.',
+      details: [
+        'Usually built on PPE rules.',
+        'One death ends the run.',
+        'Breaking any agreed rule also ends the run.',
+        'Popularized by content creators such as Sebchoof.',
+      ],
+      note: VARIES },
     { id: 'bpe', name: 'BPE', long: 'Bail Player Experience',
-      rule: 'Using the nexus key to escape death costs your highest tier item or a set penalty.' },
+      summary: 'Nexusing to escape death costs you gear.',
+      details: [
+        'Usually built on PPE rules.',
+        'Every time you use the nexus key to escape death, you lose your highest tier item, or take another agreed penalty.',
+      ],
+      note: VARIES },
     { id: 'gpe', name: 'GPE', long: 'Gun-Game Player Experience',
-      rule: 'Progress through dungeon tiers in order. Use lower tier or restricted gear before moving up.' },
-    { id: 'realmlocke', name: 'Realmlocke', long: 'PetNPE',
-      rule: 'No pet, plus Nuzlocke style rules: limited item slots, gear limits per boss, permadeath milestones.' },
+      summary: 'Clear dungeons in order before moving up.',
+      details: [
+        'Usually built on PPE rules.',
+        'Progress through dungeon difficulty in order. Clear the current tier before moving to harder content.',
+        'Use lower tier or restricted gear while you progress.',
+      ],
+      note: VARIES },
+    { id: 'realmlocke', name: 'Realmlocke', long: 'PetNPE, Nuzlocke style',
+      summary: 'No pet, plus Nuzlocke style limits.',
+      details: [
+        'All NPE rules apply.',
+        'Only the first drop from each boss or dungeon may be kept, in the spirit of a Pokemon Nuzlocke.',
+        'Limit how many item slots you may fill.',
+        'Set permadeath milestones: if you die before one, the run is over.',
+      ],
+      note: VARIES },
   ];
 
   if (!DATA || !DATA.items) {
@@ -96,6 +153,7 @@
       enchants: { on: false, count: 1, unique: false },
       setChance: 0,
       animate: true,
+      sidebarHidden: false,
       tiers,
       classesOff: [],
       dungeonOn: true,
@@ -721,8 +779,8 @@
     for (const m of active) {
       const li = document.createElement('li');
       const strong = document.createElement('strong');
-      strong.textContent = m.name;
-      li.append(strong, ' ' + m.rule);
+      strong.textContent = `${m.name} (${m.long})`;
+      li.append(strong, modeDetails(m));
       ul.appendChild(li);
     }
 
@@ -841,6 +899,28 @@
     render();
   }
 
+  let showOtherModes = false;
+
+  // Bullet list of a mode's rules, plus its note.
+  function modeDetails(m) {
+    const frag = document.createDocumentFragment();
+    const ul = document.createElement('ul');
+    ul.className = 'mode-detail';
+    for (const d of m.details) {
+      const li = document.createElement('li');
+      li.textContent = d;
+      ul.appendChild(li);
+    }
+    frag.appendChild(ul);
+    if (m.note) {
+      const p = document.createElement('p');
+      p.className = 'mode-note';
+      p.textContent = m.note;
+      frag.appendChild(p);
+    }
+    return frag;
+  }
+
   function buildSettings() {
     // Display
     const disp = $('displayList');
@@ -848,17 +928,53 @@
     disp.appendChild(checkbox('Slot machine animation', settings.animate, (on) => { settings.animate = on; saveSettings(); },
       { small: reduceMotion ? 'Off because your system asks for reduced motion.' : 'Items spin before they land.', disabled: reduceMotion }));
 
-    // Modes
+    // Modes: selected ones show as full cards, the rest fold away.
     const modeList = $('modeList');
     modeList.innerHTML = '';
-    for (const m of MODES) {
-      const small = (m.long ? m.long + '. ' : '') + m.rule;
-      modeList.appendChild(checkbox(m.name, !!settings.modes[m.id], (on) => {
+    const selected = MODES.filter((m) => settings.modes[m.id]);
+    const others = MODES.filter((m) => !settings.modes[m.id]);
+    const modeBox = (m, full) => {
+      const box = checkbox(m.name, !!settings.modes[m.id], (on) => {
         settings.modes[m.id] = on;
         if (on && m.excludes) for (const x of m.excludes) settings.modes[x] = false;
+        if (on) showOtherModes = false;
         buildSettings();
         changed();
-      }, { small }));
+      }, { small: full ? m.long : `${m.long}. ${m.summary}` });
+      if (m.kinds) {
+        const tag = document.createElement('span');
+        tag.className = 'mode-tag';
+        tag.textContent = 'pool';
+        tag.title = 'Changes which items can roll';
+        box.querySelector('span').insertBefore(tag, box.querySelector('small'));
+      }
+      if (!full) return box;
+      const card = document.createElement('div');
+      card.className = 'mode-card';
+      card.appendChild(box);
+      card.appendChild(modeDetails(m));
+      return card;
+    };
+    for (const m of selected) modeList.appendChild(modeBox(m, true));
+    if (selected.length) {
+      const wrap = document.createElement('div');
+      wrap.className = 'mode-others';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn small';
+      btn.textContent = `${showOtherModes ? 'Hide' : 'Show'} other modes (${others.length})`;
+      btn.setAttribute('aria-expanded', String(showOtherModes));
+      btn.addEventListener('click', () => { showOtherModes = !showOtherModes; buildSettings(); });
+      wrap.appendChild(btn);
+      if (showOtherModes) {
+        const list = document.createElement('div');
+        list.className = 'mode-others-list';
+        for (const m of others) list.appendChild(modeBox(m, false));
+        wrap.appendChild(list);
+      }
+      modeList.appendChild(wrap);
+    } else {
+      for (const m of others) modeList.appendChild(modeBox(m, false));
     }
 
     // Weights
@@ -1011,6 +1127,15 @@
     return i === DUNGEONS.groups.length - 1 ? `Difficulty ${lo} and up` : `Difficulty ${lo} to ${g.max}`;
   }
 
+  function applySidebar() {
+    const hidden = !!settings.sidebarHidden;
+    document.querySelector('.layout').classList.toggle('wide', hidden);
+    $('settingsToggle').setAttribute('aria-expanded', String(!hidden));
+    $('settingsToggle').title = hidden ? 'Show settings' : 'Hide settings';
+    // Sprite sizes depend on card width, so redraw.
+    render();
+  }
+
   // ---------- Misc UI ----------
 
   let toastTimer = null;
@@ -1038,6 +1163,11 @@
 
   function bindEvents() {
     $('rollBtn').addEventListener('click', () => rollAll());
+    $('settingsToggle').addEventListener('click', () => {
+      settings.sidebarHidden = !settings.sidebarHidden;
+      applySidebar();
+      saveSettings();
+    });
     $('dungeonBtn').addEventListener('click', () => rollDungeonNow());
     $('seedRollBtn').addEventListener('click', () => rollAll($('seedInput').value.trim() || undefined));
     $('seedInput').addEventListener('keydown', (e) => {
@@ -1084,6 +1214,7 @@
   const hadHash = readHash();
   buildSettings();
   renderDataInfo();
+  if (settings.sidebarHidden) document.querySelector('.layout').classList.add('wide');
   if (hadHash) render();
   else {
     rollDungeon(makeRng(newSeed()));

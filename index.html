@@ -75,8 +75,14 @@
     </section>
 
     <!-- Right: settings -->
-    <aside class="settings" aria-label="Settings">
-      <h2 class="settings-title">Settings</h2>
+    <aside class="settings" id="settings" aria-label="Settings">
+      <div class="settings-head">
+        <h2 class="settings-title">Settings</h2>
+        <button class="btn small settings-toggle" id="settingsToggle" type="button" aria-expanded="true" aria-controls="settingsBody">
+          <span class="when-open">Hide</span><span class="when-closed">Settings</span>
+        </button>
+      </div>
+      <div class="settings-body" id="settingsBody">
 
       <details class="panel">
         <summary>Display</summary>
@@ -85,8 +91,8 @@
 
       <details class="panel" open>
         <summary>Challenge modes</summary>
-        <p class="hint">Iron Man and UPE change the item pool. The others add rules to follow while you play.</p>
-        <div id="modeList" class="check-list"></div>
+        <p class="hint">Modes marked "pool" change what can roll. The others add rules to follow while you play.</p>
+        <div id="modeList" class="mode-list"></div>
       </details>
 
       <details class="panel" open>
@@ -136,6 +142,7 @@
       </details>
 
       <button class="btn small" type="button" id="resetBtn">Reset all settings</button>
+      </div>
     </aside>
   </main>
 
