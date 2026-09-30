@@ -172,35 +172,76 @@ function loadGlobals() {
   return { items, classInfos };
 }
 
-// name key -> { kind: 'ut'|'st'|'t', limited }
+// Extra wiki pages with item tables, and the flag their items get.
+const EXTRA_ITEM_PAGES = {
+  'rings': null, 'limited-rings': 'limited', 'reskinned-equipment': 'reskin',
+  'untiered-drops': null, 'event-whites': null, 'biome-whites': null, 'other-items': null,
+};
+
+// Reads every item table on the given pages. Finds the Tier and Name columns
+// from the table header. Returns name key -> { kind: 'ut'|'st'|'t', flags }.
 function parseItemPages() {
   const map = new Map();
-  const pages = new Set(Object.values(SLOT_TYPES).map((t) => t[2]));
-  pages.add('rings');
-  let missing = [];
-  for (const page of pages) {
+  const pages = Object.fromEntries(Object.values(SLOT_TYPES).map((t) => [t[2], null]));
+  Object.assign(pages, EXTRA_ITEM_PAGES);
+  const missing = [];
+  for (const [page, pageFlag] of Object.entries(pages)) {
     const html = readWiki(page);
     if (!html) { missing.push(page); continue; }
-    for (const [head, body] of sections(html, 'h4')) {
-      const limited = /limited/i.test(head);
-      for (const r of rows(body)) {
-        const c = cells(r);
-        if (c.length < 3) continue;
-        const tierText = text(c[1]);
-        const name = text(c[2]);
-        let kind = null;
-        if (/^UT\b/.test(tierText)) kind = 'ut';
-        else if (/^ST\b/.test(tierText)) kind = 'st';
-        else if (/^T\d+/.test(tierText)) kind = 't';
-        if (!kind || !name) continue;
-        const k = key(name);
-        const prev = map.get(k);
-        map.set(k, { kind, limited: limited || !!(prev && prev.limited) });
+    for (const [head, body] of sections(html, 'h2|h3|h4')) {
+      const secFlag = /limited/i.test(head) ? 'limited' : null;
+      for (const table of body.matchAll(/<table[\s\S]*?<\/table>/g)) {
+        const header = [...table[0].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]));
+        const tierCol = header.findIndex((h) => /^tier$/i.test(h));
+        const nameCol = header.findIndex((h) => /^name$/i.test(h));
+        if (tierCol < 0 || nameCol < 0) continue;
+        for (const r of rows(table[0])) {
+          const c = cells(r);
+          if (c.length <= Math.max(tierCol, nameCol)) continue;
+          const tierText = text(c[tierCol]);
+          const name = text(c[nameCol]).replace(/\s*\*+$/, '');
+          let kind = null;
+          if (/^UT\b/.test(tierText)) kind = 'ut';
+          else if (/^ST\b/.test(tierText)) kind = 'st';
+          else if (/^T\d+/.test(tierText)) kind = 't';
+          if (!kind || !name) continue;
+          const k = key(name);
+          const entry = map.get(k) || { kind, flags: new Set() };
+          if (secFlag) entry.flags.add(secFlag);
+          if (pageFlag) entry.flags.add(pageFlag);
+          map.set(k, entry);
+        }
       }
     }
   }
   if (missing.length) console.warn('WARN: missing wiki pages:', missing.join(', '));
   return map;
+}
+
+// ST sets from the set list and one page per set.
+// Returns [{ name, group, keys: [item name keys] }].
+function parseSetPages() {
+  const list = readWiki('set-tier-items');
+  if (!list) return [];
+  const out = [];
+  for (const table of list.matchAll(/<table[\s\S]*?<\/table>/g)) {
+    const header = [...table[0].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]));
+    if (header[0] !== 'Class') continue;
+    for (const r of rows(table[0])) {
+      cells(r).forEach((cell, col) => {
+        const m = cell.match(/href="\/wiki\/([a-z0-9-]+-set)"[\s\S]*?title="([^"]+)"/);
+        if (!m || col === 0) return;
+        const file = path.join(WIKI, 'sets', `${m[1]}.html`);
+        if (!fs.existsSync(file)) return;
+        const html = fs.readFileSync(file, 'utf8');
+        const body = html.slice(html.indexOf('<h1'), html.search(/initializeWikiPage|class="wiki-nav/));
+        const names = [...body.matchAll(/<a href="\/wiki\/[^"]+"[^>]*>([^<]+)<\/a>|title="([^"]+)"/g)]
+          .map((x) => key(x[1] || x[2]));
+        out.push({ name: norm(m[2]), group: header[col] || '', keys: [...new Set(names)] });
+      });
+    }
+  }
+  return out;
 }
 
 function parseEnchants() {
@@ -259,6 +300,11 @@ function parseDungeons() {
 function build(meta) {
   const { items: rawItems, classInfos } = loadGlobals();
   const wikiItems = parseItemPages();
+  // Items listed only on an ST set page count as ST.
+  const setPages = parseSetPages();
+  for (const set of setPages) {
+    for (const k of set.keys) if (!wikiItems.has(k)) wikiItems.set(k, { kind: 'st', flags: new Set(), fromSet: true });
+  }
 
   const classes = [];
   for (const row of classInfos) {
@@ -285,8 +331,7 @@ function build(meta) {
     if (tier >= 0) kind = 't';
     else if (wiki && wiki.kind !== 't') kind = wiki.kind;
     else { dropped.push(name); continue; }
-    const flags = [];
-    if (wiki && wiki.limited) flags.push('limited');
+    const flags = wiki ? [...wiki.flags] : [];
     if (/^legacy /i.test(name)) flags.push('legacy');
     if (/\(SB\)$/i.test(name)) flags.push('sb');
     kept.push({ id, name, slot, tier, x, y, kind, flags });
@@ -301,19 +346,26 @@ function build(meta) {
     else byName.set(k, it);
   }
 
-  // ST sets: set pieces have ids next to each other. Group base ST items by
-  // small id gaps, one per category, max 4 pieces.
-  const sets = [];
-  let cur = [];
+  // ST sets: match item names on each set page to base (non shiny) ST items,
+  // one item per equipment category.
   const catOf = (it) => SLOT_TYPES[it.slot][1];
-  const flush = () => { if (cur.length >= 2) sets.push(cur.map((it) => it.id)); cur = []; };
-  for (const it of kept.filter((i) => i.kind === 'st' && !i.flags.includes('shiny'))) {
-    const prev = cur[cur.length - 1];
-    if (prev && (it.id - prev.id > 4 || cur.some((c) => catOf(c) === catOf(it)))) flush();
-    cur.push(it);
-    if (cur.length === 4) flush();
+  const stByKey = new Map();
+  for (const it of kept) {
+    if (it.kind === 'st' && !it.flags.includes('shiny') && !stByKey.has(key(it.name))) stByKey.set(key(it.name), it);
   }
-  flush();
+  const sets = [];
+  const setKeys = new Set();
+  for (const set of setPages) {
+    const pieces = [];
+    for (const k of set.keys) {
+      const it = stByKey.get(k);
+      if (it && !pieces.some((p) => catOf(p) === catOf(it))) pieces.push(it);
+    }
+    const sig = pieces.map((p) => p.id).sort().join(',');
+    if (pieces.length < 2 || setKeys.has(sig)) continue;
+    setKeys.add(sig);
+    sets.push({ name: set.name, group: set.group, ids: pieces.map((p) => p.id) });
+  }
 
   const count = (k) => kept.filter((i) => i.kind === k).length;
   console.log(`Classes (${classes.length}): ${classes.map((c) => c.name).join(', ')}`);

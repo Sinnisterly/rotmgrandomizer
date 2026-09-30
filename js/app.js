@@ -9,7 +9,7 @@
 
   const DATA = window.ROTMG_DATA;
   const ENCHANTS = window.ROTMG_ENCHANTS || [];
-  const DUNGEONS = window.ROTMG_DUNGEONS || { groups: [], dungeons: [] };
+  const DUNGEONS = window.ROTMG_DUNGEONS || { groups: [], sections: [], dungeons: [] };
 
   const CATEGORIES = ['weapon', 'ability', 'armor', 'ring'];
   const CATEGORY_NAMES = { weapon: 'Weapon', ability: 'Ability', armor: 'Armor', ring: 'Ring' };
@@ -17,8 +17,15 @@
     { id: 't', name: 'Tiered' },
     { id: 'ut', name: 'UT' },
     { id: 'st', name: 'ST' },
-    { id: 'o', name: 'Other' },
   ];
+  // Item flags that can be turned off in settings.
+  const FLAGS = [
+    { id: 'shiny', name: 'Shiny items', hint: 'Rare recolored versions of UT items.' },
+    { id: 'limited', name: 'Limited edition items', hint: 'Event, shop and retired items.' },
+    { id: 'legacy', name: 'Legacy items', hint: 'Old versions kept after a rework.' },
+    { id: 'reskin', name: 'Reskinned items', hint: 'Alternate weapon styles like Spellblades, Flails and Tachis.' },
+  ];
+  const ENCHANT_LEVELS = ['I', 'II', 'III', 'IV'];
   const STORAGE_SETTINGS = 'rotmgr.settings.v1';
   const STORAGE_HISTORY = 'rotmgr.history.v1';
   const HISTORY_MAX = 25;
@@ -28,7 +35,7 @@
   const MODES = [
     { id: 'ironman', name: 'Iron Man', kinds: ['t'], excludes: ['upe'],
       rule: 'Tiered items only. No UT or ST gear.' },
-    { id: 'upe', name: 'UPE', long: 'Untiered Player Experience', kinds: ['ut', 'st', 'o'], excludes: ['ironman'],
+    { id: 'upe', name: 'UPE', long: 'Untiered Player Experience', kinds: ['ut', 'st'], excludes: ['ironman'],
       rule: 'No tiered items. Only UT or ST gear from drops.' },
     { id: 'ppe', name: 'PPE', long: 'Pro Player Experience',
       rule: 'Fresh character. No vault, no trading, no items from other players. Equip only what you loot yourself. Pets are allowed.' },
@@ -63,7 +70,12 @@
   const ITEM_BY_ID = new Map(ITEMS.map((it) => [it.id, it]));
   const CLASSES = DATA.classes;
   const CLASS_BY_ID = new Map(CLASSES.map((c) => [c.id, c]));
-  const SETS = DATA.sets.map((ids) => ids.map((id) => ITEM_BY_ID.get(id)).filter(Boolean));
+  // Sets are { name, group, ids } from the builder.
+  const SETS = DATA.sets.map((set) => ({
+    name: set.name,
+    group: set.group,
+    items: set.ids.map((id) => ITEM_BY_ID.get(id)).filter(Boolean),
+  }));
   const KIND_COUNTS = ITEMS.reduce((acc, it) => ((acc[it.kind] = (acc[it.kind] || 0) + 1), acc), {});
 
   // Highest tier per category, for the tier limit dropdowns.
@@ -79,13 +91,15 @@
     for (const c of CATEGORIES) tiers[c] = [0, MAX_TIER[c] || 0];
     return {
       modes: {},
-      weights: { t: 50, ut: 35, st: 15, o: 5 },
-      include: { shiny: true, legacy: true, enchants: false },
+      weights: { t: 50, ut: 35, st: 15 },
+      include: Object.fromEntries(FLAGS.map((f) => [f.id, true])),
+      enchants: { on: false, count: 1, unique: false },
       setChance: 0,
       tiers,
       classesOff: [],
       dungeonOn: true,
       dungeonGroups: DUNGEONS.groups.map((g) => g.id),
+      dungeonSections: DUNGEONS.sections.filter((x) => x.on).map((x) => x.id),
     };
   }
 
@@ -99,6 +113,7 @@
           ...saved,
           weights: { ...base.weights, ...saved.weights },
           include: { ...base.include, ...saved.include },
+          enchants: { ...base.enchants, ...saved.enchants },
           tiers: { ...base.tiers, ...saved.tiers },
         };
       }
@@ -176,8 +191,9 @@
   }
 
   function itemAllowed(it) {
-    if (!settings.include.shiny && it.flags.includes('shiny')) return false;
-    if (!settings.include.legacy && it.flags.includes('legacy')) return false;
+    for (const f of FLAGS) {
+      if (!settings.include[f.id] && it.flags.includes(f.id)) return false;
+    }
     if (it.kind === 't') {
       const [lo, hi] = settings.tiers[it.category];
       if (it.tier < lo || it.tier > hi) return false;
@@ -206,7 +222,7 @@
   // ST sets where every non ring piece fits the class and passes filters.
   function setsForClass(cls) {
     if (!effectiveWeights().st) return [];
-    return SETS.filter((set) => set.every((it) => {
+    return SETS.filter((set) => set.items.length > 1 && set.items.every((it) => {
       if (!itemAllowed(it)) return false;
       return it.slot === cls.slots[CATEGORIES.indexOf(it.category)];
     }));
@@ -217,13 +233,36 @@
   }
 
   function enabledDungeons() {
-    return DUNGEONS.dungeons.filter((d) => settings.dungeonGroups.includes(d.group));
+    return DUNGEONS.dungeons.filter((d) => settings.dungeonGroups.includes(d.group)
+      && settings.dungeonSections.includes(d.section));
   }
 
-  function rollEnchant(category, rng) {
-    if (!settings.include.enchants || !ENCHANTS.length) return null;
-    const pool = ENCHANTS.filter((e) => !e.slots || e.slots.includes(category));
-    return pool.length ? pick(pool, rng).name : null;
+  // Two enchantments conflict when one's labels hit the other's incompatible labels.
+  function enchantsConflict(a, b) {
+    return a.name === b.name
+      || a.labels.some((l) => b.incompat.includes(l))
+      || b.labels.some((l) => a.incompat.includes(l));
+  }
+
+  // Rolls up to N compatible enchantments. Returns [[enchantIndex, level], ...].
+  function rollEnchants(category, rng) {
+    const cfg = settings.enchants;
+    if (!cfg.on || !ENCHANTS.length) return [];
+    let pool = ENCHANTS.map((e, i) => ({ e, i }))
+      .filter(({ e }) => e.slots.includes(category) && (cfg.unique || e.type !== 'unique'));
+    const out = [];
+    while (out.length < cfg.count && pool.length) {
+      const { e, i } = pick(pool, rng);
+      out.push([i, e.type === 'unique' ? 0 : Math.floor(rng() * ENCHANT_LEVELS.length)]);
+      pool = pool.filter((p) => !enchantsConflict(p.e, e));
+    }
+    return out;
+  }
+
+  function enchantLabel([i, lvl]) {
+    const e = ENCHANTS[i];
+    if (!e) return '';
+    return e.type === 'unique' ? e.name : `${e.name} ${ENCHANT_LEVELS[lvl] || ''}`.trim();
   }
 
   // ---------- Roll state ----------
@@ -232,9 +271,9 @@
     seed: '',
     classId: null,
     items: { weapon: null, ability: null, armor: null, ring: null },
-    enchants: { weapon: null, ability: null, armor: null, ring: null },
+    enchants: { weapon: [], ability: [], armor: [], ring: [] },
     dungeon: null, // dungeon name
-    fromSet: false,
+    fromSet: null, // name of the ST set this roll came from
     locks: { class: false, weapon: false, ability: false, armor: false, ring: false, dungeon: false },
   };
   let notices = [];
@@ -256,7 +295,7 @@
     const cls = currentClass();
     const it = cls ? rollItem(cls, category, rng) : null;
     state.items[category] = it ? it.id : null;
-    state.enchants[category] = it ? rollEnchant(category, rng) : null;
+    state.enchants[category] = it ? rollEnchants(category, rng) : [];
   }
 
   function rollClass(rng) {
@@ -284,7 +323,7 @@
       if (!rollClass(rng)) { render(); return; }
     }
     const cls = currentClass();
-    state.fromSet = false;
+    state.fromSet = null;
 
     // ST set roll.
     const open = CATEGORIES.filter((c) => !state.locks[c]);
@@ -292,15 +331,15 @@
       const sets = setsForClass(cls);
       if (sets.length) {
         const set = pick(sets, rng);
-        for (const it of set) {
+        for (const it of set.items) {
           if (!state.locks[it.category]) {
             state.items[it.category] = it.id;
-            state.enchants[it.category] = rollEnchant(it.category, rng);
+            state.enchants[it.category] = rollEnchants(it.category, rng);
           }
         }
         // Fill slots the set does not cover.
-        for (const c of open) if (!set.some((it) => it.category === c)) rollSlot(c, rng);
-        state.fromSet = true;
+        for (const c of open) if (!set.items.some((it) => it.category === c)) rollSlot(c, rng);
+        state.fromSet = set.name;
       } else {
         notices.push(`No ST set fits ${cls.name} with the current filters. Rolled single items.`);
       }
@@ -328,7 +367,7 @@
     } else {
       rollSlot(slot, rng);
     }
-    state.fromSet = false;
+    state.fromSet = null;
     state.seed = '';
     finishRoll();
   }
@@ -352,12 +391,13 @@
   function kindLabel(it) {
     if (it.kind === 't') return `T${it.tier}`;
     if (it.kind === 'ut') return 'UT';
-    if (it.kind === 'st') return 'ST';
-    return 'Untiered';
+    return 'ST';
   }
 
+  const isShiny = (it) => it.flags.includes('shiny');
+
   function itemText(it) {
-    return `${it.typeName}: ${it.name} (${kindLabel(it)})`;
+    return `${it.typeName}: ${it.name}${isShiny(it) ? ' (Shiny)' : ''} (${kindLabel(it)})`;
   }
 
   function wikiUrl(name) {
@@ -371,7 +411,7 @@
     for (const c of CATEGORIES) {
       const it = ITEM_BY_ID.get(state.items[c]);
       let t = it ? itemText(it) : `${CATEGORY_NAMES[c]}: none`;
-      if (state.enchants[c]) t += ` [${state.enchants[c]}]`;
+      if (state.enchants[c].length) t += ` [${state.enchants[c].map(enchantLabel).join(', ')}]`;
       parts.push(t);
     }
     if (settings.dungeonOn && state.dungeon) parts.push(`Dungeon: ${state.dungeon}`);
@@ -387,12 +427,21 @@
     const p = new URLSearchParams();
     if (state.classId !== null) p.set('c', state.classId);
     const keys = { weapon: 'w', ability: 'a', armor: 'ar', ring: 'r' };
-    for (const c of CATEGORIES) if (state.items[c] !== null) p.set(keys[c], state.items[c]);
+    for (const c of CATEGORIES) {
+      if (state.items[c] !== null) p.set(keys[c], state.items[c]);
+      if (state.enchants[c].length) p.set(keys[c] + 'e', state.enchants[c].map((e) => e.join('.')).join('_'));
+    }
     if (settings.dungeonOn && state.dungeon) p.set('d', state.dungeon);
     const modes = MODES.filter((m) => settings.modes[m.id]).map((m) => m.id);
     if (modes.length) p.set('m', modes.join(','));
     if (state.seed) p.set('s', state.seed);
     history.replaceState(null, '', '#' + p.toString());
+  }
+
+  function parseEnchants(str) {
+    if (!str) return [];
+    return str.split('_').map((x) => x.split('.').map(Number))
+      .filter(([i, l]) => ENCHANTS[i] && l >= 0 && l < ENCHANT_LEVELS.length);
   }
 
   // Loads a roll from the URL hash. Returns true if a roll was found.
@@ -405,6 +454,7 @@
     for (const c of CATEGORIES) {
       const it = ITEM_BY_ID.get(Number(p.get(keys[c])));
       state.items[c] = it && it.slot === cls.slots[CATEGORIES.indexOf(c)] ? it.id : null;
+      state.enchants[c] = parseEnchants(p.get(keys[c] + 'e'));
     }
     state.dungeon = p.get('d');
     state.seed = p.get('s') || '';
@@ -428,7 +478,7 @@
     list.unshift({
       text: rollAsText(),
       time: Date.now(),
-      state: { c: state.classId, i: { ...state.items }, d: state.dungeon, s: state.seed },
+      state: { c: state.classId, i: { ...state.items }, e: { ...state.enchants }, d: state.dungeon, s: state.seed },
     });
     try { localStorage.setItem(STORAGE_HISTORY, JSON.stringify(list.slice(0, HISTORY_MAX))); } catch (e) { /* ignore */ }
   }
@@ -437,10 +487,10 @@
     if (!entry || !entry.state || !CLASS_BY_ID.has(entry.state.c)) return;
     state.classId = entry.state.c;
     for (const c of CATEGORIES) state.items[c] = ITEM_BY_ID.has(entry.state.i[c]) ? entry.state.i[c] : null;
-    for (const c of CATEGORIES) state.enchants[c] = null;
+    for (const c of CATEGORIES) state.enchants[c] = (entry.state.e && entry.state.e[c]) || [];
     state.dungeon = entry.state.d || null;
     state.seed = entry.state.s || '';
-    state.fromSet = false;
+    state.fromSet = null;
     notices = [];
     writeHash();
     render();
@@ -505,8 +555,8 @@
         <div class="slot-body">
           <span class="label"></span>
           <p class="slot-name"></p>
-          <span class="badge"></span>
-          <span class="enchant"></span>
+          <span class="badges"></span>
+          <ul class="enchants"></ul>
         </div>
         <div class="slot-actions"></div>`;
       wrap.appendChild(card);
@@ -550,13 +600,30 @@
       } else {
         nameEl.textContent = cls ? 'No item fits the current filters' : '-';
       }
-      const badge = card.querySelector('.badge');
-      badge.className = 'badge' + (it ? ' ' + it.kind : '');
-      badge.textContent = it ? kindLabel(it) : '';
-      badge.hidden = !it;
-      const ench = card.querySelector('.enchant');
-      ench.textContent = state.enchants[c] ? 'Enchant: ' + state.enchants[c] : '';
-      ench.hidden = !state.enchants[c];
+      const badges = card.querySelector('.badges');
+      badges.innerHTML = '';
+      if (it) {
+        const add = (cls, label) => {
+          const b = document.createElement('span');
+          b.className = 'badge ' + cls;
+          b.textContent = label;
+          badges.appendChild(b);
+        };
+        add(it.kind, kindLabel(it));
+        if (isShiny(it)) add('shiny', 'Shiny');
+        if (it.flags.includes('limited')) add('flag', 'Limited');
+        if (it.flags.includes('legacy')) add('flag', 'Legacy');
+        if (it.flags.includes('reskin')) add('flag', 'Reskin');
+      }
+      const ench = card.querySelector('.enchants');
+      ench.innerHTML = '';
+      for (const e of state.enchants[c]) {
+        const li = document.createElement('li');
+        li.textContent = enchantLabel(e);
+        li.title = ENCHANTS[e[0]].effect;
+        ench.appendChild(li);
+      }
+      ench.hidden = !state.enchants[c].length;
       setSprite(card.querySelector('.sprite'), it);
       actionButtons(card.querySelector('.slot-actions'), c, CATEGORY_NAMES[c].toLowerCase());
     }
@@ -567,7 +634,10 @@
     const dungeon = DUNGEONS.dungeons.find((d) => d.name === state.dungeon);
     $('dungeonName').textContent = state.dungeon || '-';
     const group = dungeon && DUNGEONS.groups.find((g) => g.id === dungeon.group);
-    $('dungeonGroup').textContent = group ? group.name : '';
+    const section = dungeon && DUNGEONS.sections.find((x) => x.id === dungeon.section);
+    $('dungeonGroup').textContent = dungeon
+      ? `${group.name}, difficulty ${dungeon.difficulty} (${section.name})`
+      : settings.dungeonOn ? 'No dungeon matches the dungeon filters' : '';
     dCard.classList.toggle('is-locked', state.locks.dungeon);
     actionButtons(dCard.querySelector('.slot-actions'), 'dungeon', 'dungeon');
 
@@ -582,7 +652,7 @@
     if (state.fromSet) {
       const li = document.createElement('li');
       li.innerHTML = '<strong>ST set</strong> ';
-      li.append('This roll is a full or partial ST set.');
+      li.append(`${state.fromSet} set. Slots the set does not cover were rolled normally.`);
       ul.appendChild(li);
     }
     for (const m of active) {
@@ -692,11 +762,41 @@
     // Include toggles
     const inc = $('includeList');
     inc.innerHTML = '';
-    inc.appendChild(checkbox('Shiny items', settings.include.shiny, (on) => { settings.include.shiny = on; changed(); }));
-    inc.appendChild(checkbox('Legacy items', settings.include.legacy, (on) => { settings.include.legacy = on; changed(); }));
-    inc.appendChild(checkbox('Enchantments', settings.include.enchants && ENCHANTS.length > 0,
-      (on) => { settings.include.enchants = on; changed(); },
-      { disabled: !ENCHANTS.length, small: ENCHANTS.length ? 'Adds one random enchant to each item.' : 'No enchant data in this build yet.' }));
+    for (const f of FLAGS) {
+      const n = ITEMS.filter((it) => it.flags.includes(f.id)).length;
+      if (!n) continue;
+      inc.appendChild(checkbox(`${f.name} (${n})`, settings.include[f.id], (on) => {
+        settings.include[f.id] = on;
+        changed();
+      }, { small: f.hint }));
+    }
+
+    // Enchantments
+    const en = $('enchantList');
+    en.innerHTML = '';
+    const ec = settings.enchants;
+    en.appendChild(checkbox('Roll enchantments', ec.on && ENCHANTS.length > 0, (on) => { ec.on = on; buildSettings(); changed(); },
+      { disabled: !ENCHANTS.length, small: ENCHANTS.length ? `${ENCHANTS.length} enchantments. Rolls never combine incompatible ones.` : 'No enchant data in this build.' }));
+    en.appendChild(checkbox('Include unique enchantments', ec.unique, (on) => { ec.unique = on; saveSettings(); },
+      { disabled: !ec.on }));
+    const row = document.createElement('div');
+    row.className = 'range-row';
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = 1;
+    range.max = 4;
+    range.value = ec.count;
+    range.disabled = !ec.on;
+    range.setAttribute('aria-label', 'Enchantments per item');
+    const out = document.createElement('output');
+    out.textContent = `${ec.count} per item`;
+    range.addEventListener('input', () => {
+      ec.count = Number(range.value);
+      out.textContent = `${ec.count} per item`;
+      saveSettings();
+    });
+    row.append(range, out);
+    en.appendChild(row);
 
     // Set chance
     $('setChance').value = settings.setChance;
@@ -758,8 +858,25 @@
         settings.dungeonGroups = settings.dungeonGroups.filter((id) => id !== g.id);
         if (on) settings.dungeonGroups.push(g.id);
         saveSettings();
+      }, { small: groupRange(g) }));
+    }
+    const ds = $('dungeonSectionList');
+    ds.innerHTML = '';
+    for (const x of DUNGEONS.sections) {
+      const count = DUNGEONS.dungeons.filter((d) => d.section === x.id).length;
+      ds.appendChild(checkbox(`${x.name} (${count})`, settings.dungeonSections.includes(x.id), (on) => {
+        settings.dungeonSections = settings.dungeonSections.filter((id) => id !== x.id);
+        if (on) settings.dungeonSections.push(x.id);
+        saveSettings();
       }));
     }
+  }
+
+  // Text like "Difficulty 3.5 to 5" for a dungeon group.
+  function groupRange(g) {
+    const i = DUNGEONS.groups.indexOf(g);
+    const lo = i > 0 ? DUNGEONS.groups[i - 1].max + 0.5 : 0;
+    return i === DUNGEONS.groups.length - 1 ? `Difficulty ${lo} and up` : `Difficulty ${lo} to ${g.max}`;
   }
 
   // ---------- Misc UI ----------
@@ -784,8 +901,7 @@
     const m = DATA.meta;
     const date = new Date(m.generated).toISOString().slice(0, 10);
     const el = $('dataInfo');
-    el.textContent = `${CLASSES.length} classes, ${ITEMS.length} items, ${SETS.length} ST sets. Data: ${m.source} (built ${date})`;
-    el.classList.toggle('stale', /snapshot/i.test(m.source));
+    el.textContent = `${CLASSES.length} classes, ${ITEMS.length} items, ${SETS.length} ST sets. Data from ${m.source}, ${date}`;
   }
 
   function bindEvents() {
