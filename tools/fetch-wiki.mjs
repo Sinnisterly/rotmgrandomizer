@@ -14,15 +14,16 @@ const UA = 'Mozilla/5.0 (compatible; rotmg-randomizer-data-builder; +https://git
 
 const PAGES = [
   'classes', 'druid', 'kensei', 'summoner',
-  'sets', 'set-tiered-items', 'untiered-items', 'limited-items', 'shiny-items',
-  'enchantments', 'enchanting', 'dungeons',
+  'shiny-items', 'enchanting', 'dungeons',
   'swords', 'daggers', 'bows', 'staves', 'wands', 'katanas',
   'sigils', 'maces', 'sheaths', 'lutes',
   'weapons', 'ability-items', 'armor', 'rings',
   'tomes', 'shields', 'spells', 'seals', 'cloaks', 'quivers', 'helms', 'poisons',
-  'skulls', 'traps', 'orbs', 'prisms', 'scepters', 'stars', 'shurikens', 'wakizashi',
-  'wakizashis', 'leather-armors', 'leather-armor', 'robes', 'heavy-armors', 'heavy-armor',
-  'untiered-rings', 'tiered-rings', 'set-tiered-rings',
+  'skulls', 'traps', 'orbs', 'prisms', 'scepters', 'stars', 'wakizashi',
+  'leather-armors', 'robes', 'heavy-armors',
+  'untiered-rings', 'limited-rings', 'set-tier-items', 'equipment-set-gear', 'themed-sets',
+  'reskinned-equipment', 'april-fool-s-equipment-versions', 'untiered-drops',
+  'event-whites', 'biome-whites', 'other-items',
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
