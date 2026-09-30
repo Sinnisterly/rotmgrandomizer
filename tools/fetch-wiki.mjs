@@ -14,7 +14,7 @@ const UA = 'Mozilla/5.0 (compatible; rotmg-randomizer-data-builder; +https://git
 
 const PAGES = [
   'classes', 'druid', 'kensei', 'summoner',
-  'shiny-items', 'enchanting', 'dungeons',
+  'shiny-items', 'enchanting', 'dungeons', 'pet-player-experience-guide',
   'swords', 'daggers', 'bows', 'staves', 'wands', 'katanas',
   'sigils', 'maces', 'sheaths', 'lutes',
   'weapons', 'ability-items', 'armor', 'rings',
