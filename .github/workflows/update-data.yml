@@ -27,6 +27,8 @@ jobs:
           node-version: 22
 
       - name: Build data from RealmEye
+        id: build
+        continue-on-error: true
         run: node tools/build-data.mjs
 
       - name: Probe other sources (log only)
@@ -50,3 +52,7 @@ jobs:
           git add data
           git commit -m "Update item data from RealmEye"
           git push
+
+      - name: Fail if the build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1

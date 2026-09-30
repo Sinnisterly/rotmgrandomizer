@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, 'data');
+// Raw downloaded files are kept here so builds can be rerun offline.
+const SOURCE_DIR = path.join(ROOT, 'data', 'source');
 const UA = 'Mozilla/5.0 (compatible; rotmg-randomizer-data-builder; +https://github.com/sinnisterly/rotmgrandomizer)';
 
 // RealmEye slot type ids. Ids not listed here get a name from CLASS_ABILITY_NAMES
@@ -91,6 +93,22 @@ async function discoverRealmEye() {
     }
   }
   if (!renders) throw new Error('Could not find renders.png on realmeye.com');
+
+  // Save other RealmEye scripts that mention classes, for reference.
+  const scripts = [...html.matchAll(/src=["']([^"']+\.js[^"']*)["']/g)].map((x) => abs(x[1]));
+  console.log('Page scripts:', scripts.join(' '));
+  fs.mkdirSync(SOURCE_DIR, { recursive: true });
+  for (const s of scripts) {
+    if (s === definition || !s.startsWith(base)) continue;
+    try {
+      const text = (await fetchBuf(s)).toString('utf8');
+      if (/Rogue/.test(text) && /Kensei|Summoner/.test(text)) {
+        const name = path.basename(new URL(s).pathname);
+        fs.writeFileSync(path.join(SOURCE_DIR, name), text);
+        console.log('Saved', s);
+      }
+    } catch (e) { console.log('Skip', s, e.message); }
+  }
   return { definition, renders };
 }
 
@@ -196,6 +214,11 @@ async function main() {
   console.log('renders:   ', src.renders);
 
   const [defBuf, pngBuf] = await Promise.all([load(src.definition), load(src.renders)]);
+  if (/^https?:/.test(src.definition)) {
+    fs.mkdirSync(SOURCE_DIR, { recursive: true });
+    fs.writeFileSync(path.join(SOURCE_DIR, 'definition.js'), defBuf);
+    fs.writeFileSync(path.join(SOURCE_DIR, 'renders.png'), pngBuf);
+  }
   const size = pngSize(pngBuf);
   const g = evalDefinition(defBuf.toString('utf8'));
   const data = build(g, {
