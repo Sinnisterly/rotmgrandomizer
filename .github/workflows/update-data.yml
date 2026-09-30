@@ -7,6 +7,7 @@ on:
   push:
     paths:
       - tools/build-data.mjs
+      - tools/fetch-wiki.mjs
       - .github/workflows/update-data.yml
 
 permissions:
@@ -25,6 +26,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Fetch RealmEye wiki pages
+        continue-on-error: true
+        run: node tools/fetch-wiki.mjs
 
       - name: Build data from RealmEye
         id: build
