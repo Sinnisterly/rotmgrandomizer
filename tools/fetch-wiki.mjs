@@ -28,15 +28,25 @@ const PAGES = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-fs.mkdirSync(OUT, { recursive: true });
-for (const page of PAGES) {
+async function save(page, dir = OUT) {
   const url = `https://www.realmeye.com/wiki/${page}`;
   try {
     const res = await fetch(url, { headers: { 'User-Agent': UA } });
     console.log(res.status, url);
-    if (res.ok) fs.writeFileSync(path.join(OUT, `${page}.html`), Buffer.from(await res.arrayBuffer()));
+    if (res.ok) fs.writeFileSync(path.join(dir, `${page}.html`), Buffer.from(await res.arrayBuffer()));
   } catch (e) {
     console.log('ERR', url, e.message);
   }
   await sleep(1000);
 }
+
+fs.mkdirSync(OUT, { recursive: true });
+for (const page of PAGES) await save(page);
+
+// One page per ST set, linked from the set list.
+const setsDir = path.join(OUT, 'sets');
+fs.mkdirSync(setsDir, { recursive: true });
+const list = fs.existsSync(path.join(OUT, 'set-tier-items.html'))
+  ? fs.readFileSync(path.join(OUT, 'set-tier-items.html'), 'utf8') : '';
+const setPages = new Set([...list.matchAll(/href="\/wiki\/([a-z0-9-]+-set)"/g)].map((m) => m[1]));
+for (const page of setPages) await save(page, setsDir);
