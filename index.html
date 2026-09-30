@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RotMG Randomizer</title>
+  <meta name="description" content="Realm of the Mad God Exalt class, item and dungeon randomizer with challenge modes.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>RotMG <span>Randomizer</span></h1>
+    <p class="data-info" id="dataInfo"></p>
+  </header>
+
+  <main class="layout">
+    <!-- Left: results -->
+    <section class="results" aria-label="Roll result">
+      <div class="panel class-card" id="classCard">
+        <div class="sprite big" id="classSprite" aria-hidden="true"></div>
+        <div class="class-text">
+          <span class="label">Class</span>
+          <h2 id="className">-</h2>
+          <p class="sub" id="classSlots"></p>
+        </div>
+        <div class="slot-actions" data-slot="class"></div>
+      </div>
+
+      <div class="slots" id="slots"></div>
+
+      <div class="roll-bar">
+        <button class="btn-roll" id="rollBtn" type="button">Randomize</button>
+        <div class="seed-row">
+          <label for="seedInput">Seed</label>
+          <input id="seedInput" type="text" spellcheck="false" autocomplete="off">
+          <button class="btn" id="seedRollBtn" type="button" title="Roll again using the seed in the box">Use seed</button>
+        </div>
+        <div class="share-row">
+          <button class="btn" id="copyLinkBtn" type="button">Copy link</button>
+          <button class="btn" id="copyTextBtn" type="button">Copy as text</button>
+          <span class="toast" id="toast" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <div class="panel rules" id="rulesPanel" hidden>
+        <h3>Active rules</h3>
+        <ul id="rulesList"></ul>
+      </div>
+
+      <div class="panel notice" id="notice" hidden></div>
+
+      <!-- Dungeon randomizer -->
+      <div class="panel dungeon-card" id="dungeonCard">
+        <div class="dungeon-text">
+          <span class="label">Dungeon</span>
+          <h2 id="dungeonName">-</h2>
+          <p class="sub" id="dungeonGroup"></p>
+        </div>
+        <div class="slot-actions" data-slot="dungeon"></div>
+      </div>
+
+      <details class="panel history" id="historyPanel">
+        <summary>History <span class="count" id="historyCount"></span></summary>
+        <ol id="historyList"></ol>
+        <button class="btn small" id="clearHistoryBtn" type="button">Clear history</button>
+      </details>
+    </section>
+
+    <!-- Right: settings -->
+    <aside class="settings" aria-label="Settings">
+      <h2 class="settings-title">Settings</h2>
+
+      <details class="panel" open>
+        <summary>Challenge modes</summary>
+        <p class="hint">Iron Man and UPE change the item pool. The others add rules to follow while you play.</p>
+        <div id="modeList" class="check-list"></div>
+      </details>
+
+      <details class="panel" open>
+        <summary>Item types</summary>
+        <p class="hint">Weight is how often each type is picked. 0 turns it off.</p>
+        <div id="weightList" class="weights"></div>
+        <div class="check-list" id="includeList"></div>
+      </details>
+
+      <details class="panel">
+        <summary>ST sets</summary>
+        <p class="hint">Chance that a roll gives a full ST set for the class instead of single items. Needs ST items turned on.</p>
+        <div class="range-row">
+          <input type="range" id="setChance" min="0" max="100" step="5">
+          <output id="setChanceOut"></output>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>Tier limits</summary>
+        <p class="hint">Only affects tiered items.</p>
+        <div id="tierList" class="tier-list"></div>
+      </details>
+
+      <details class="panel">
+        <summary>Classes</summary>
+        <div class="row-btns">
+          <button class="btn small" type="button" id="classesAll">All</button>
+          <button class="btn small" type="button" id="classesNone">None</button>
+        </div>
+        <div id="classList" class="check-list cols"></div>
+      </details>
+
+      <details class="panel">
+        <summary>Dungeons</summary>
+        <label class="check"><input type="checkbox" id="dungeonOn"> Roll a dungeon</label>
+        <div id="dungeonGroupList" class="check-list"></div>
+      </details>
+
+      <button class="btn small" type="button" id="resetBtn">Reset all settings</button>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <p>Fan made. Not affiliated with DECA Games. Item data and sprites from RealmEye. Realm of the Mad God is a trademark of DECA Games.</p>
+  </footer>
+
+  <script src="data/items.js"></script>
+  <script src="data/enchants.js"></script>
+  <script src="data/dungeons.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

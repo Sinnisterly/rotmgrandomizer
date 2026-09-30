@@ -1,0 +1,840 @@
+/*
+ * RotMG Randomizer
+ *
+ * Data comes from data/items.js (built by tools/build-data.mjs),
+ * data/enchants.js and data/dungeons.js. Everything runs in the browser.
+ */
+(function () {
+  'use strict';
+
+  const DATA = window.ROTMG_DATA;
+  const ENCHANTS = window.ROTMG_ENCHANTS || [];
+  const DUNGEONS = window.ROTMG_DUNGEONS || { groups: [], dungeons: [] };
+
+  const CATEGORIES = ['weapon', 'ability', 'armor', 'ring'];
+  const CATEGORY_NAMES = { weapon: 'Weapon', ability: 'Ability', armor: 'Armor', ring: 'Ring' };
+  const KINDS = [
+    { id: 't', name: 'Tiered' },
+    { id: 'ut', name: 'UT' },
+    { id: 'st', name: 'ST' },
+    { id: 'o', name: 'Other' },
+  ];
+  const STORAGE_SETTINGS = 'rotmgr.settings.v1';
+  const STORAGE_HISTORY = 'rotmgr.history.v1';
+  const HISTORY_MAX = 25;
+
+  // Challenge modes. "kinds" limits which item types can roll.
+  // "excludes" lists modes that cannot be on at the same time.
+  const MODES = [
+    { id: 'ironman', name: 'Iron Man', kinds: ['t'], excludes: ['upe'],
+      rule: 'Tiered items only. No UT or ST gear.' },
+    { id: 'upe', name: 'UPE', long: 'Untiered Player Experience', kinds: ['ut', 'st', 'o'], excludes: ['ironman'],
+      rule: 'No tiered items. Only UT or ST gear from drops.' },
+    { id: 'ppe', name: 'PPE', long: 'Pro Player Experience',
+      rule: 'Fresh character. No vault, no trading, no items from other players. Equip only what you loot yourself. Pets are allowed.' },
+    { id: 'npe', name: 'NPE', long: 'No Pet Experience',
+      rule: 'No pet equipped or fed. Rely on natural healing, dodging and class utility.' },
+    { id: 'hpe', name: 'HPE', long: 'Hardcore Player Experience',
+      rule: 'Hardcore rules. One mistake or a forbidden action ends the run.' },
+    { id: 'tpe', name: 'TPE', long: 'Trade Player Experience',
+      rule: 'Gear only through trades with specific people or friends. No equipping your own drops.' },
+    { id: 'bpe', name: 'BPE', long: 'Bail Player Experience',
+      rule: 'Using the nexus key to escape death costs your highest tier item or a set penalty.' },
+    { id: 'gpe', name: 'GPE', long: 'Gun-Game Player Experience',
+      rule: 'Progress through dungeon tiers in order. Use lower tier or restricted gear before moving up.' },
+    { id: 'realmlocke', name: 'Realmlocke', long: 'PetNPE',
+      rule: 'No pet, plus Nuzlocke style rules: limited item slots, gear limits per boss, permadeath milestones.' },
+  ];
+
+  if (!DATA || !DATA.items) {
+    document.body.innerHTML = '<p style="padding:20px">data/items.js is missing. Run: node tools/build-data.mjs</p>';
+    return;
+  }
+
+  // ---------- Data indexes ----------
+
+  // Items as objects for readability.
+  const ITEMS = DATA.items.map(([id, name, slot, tier, x, y, kind, flags]) => ({
+    id, name, slot, tier, x, y, kind,
+    flags: flags ? flags.split(',') : [],
+    category: DATA.slotTypes[slot].category,
+    typeName: DATA.slotTypes[slot].name,
+  }));
+  const ITEM_BY_ID = new Map(ITEMS.map((it) => [it.id, it]));
+  const CLASSES = DATA.classes;
+  const CLASS_BY_ID = new Map(CLASSES.map((c) => [c.id, c]));
+  const SETS = DATA.sets.map((ids) => ids.map((id) => ITEM_BY_ID.get(id)).filter(Boolean));
+  const KIND_COUNTS = ITEMS.reduce((acc, it) => ((acc[it.kind] = (acc[it.kind] || 0) + 1), acc), {});
+
+  // Highest tier per category, for the tier limit dropdowns.
+  const MAX_TIER = {};
+  for (const it of ITEMS) {
+    if (it.kind === 't') MAX_TIER[it.category] = Math.max(MAX_TIER[it.category] || 0, it.tier);
+  }
+
+  // ---------- Settings ----------
+
+  function defaultSettings() {
+    const tiers = {};
+    for (const c of CATEGORIES) tiers[c] = [0, MAX_TIER[c] || 0];
+    return {
+      modes: {},
+      weights: { t: 50, ut: 35, st: 15, o: 5 },
+      include: { shiny: true, legacy: true, enchants: false },
+      setChance: 0,
+      tiers,
+      classesOff: [],
+      dungeonOn: true,
+      dungeonGroups: DUNGEONS.groups.map((g) => g.id),
+    };
+  }
+
+  function loadSettings() {
+    const base = defaultSettings();
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_SETTINGS) || 'null');
+      if (saved && typeof saved === 'object') {
+        return {
+          ...base,
+          ...saved,
+          weights: { ...base.weights, ...saved.weights },
+          include: { ...base.include, ...saved.include },
+          tiers: { ...base.tiers, ...saved.tiers },
+        };
+      }
+    } catch (e) { /* storage blocked or bad JSON */ }
+    return base;
+  }
+
+  function saveSettings() {
+    try { localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings)); } catch (e) { /* ignore */ }
+  }
+
+  let settings = loadSettings();
+
+  // ---------- Seeded RNG ----------
+
+  // Hash a string seed into a 32 bit number.
+  function hashSeed(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return h >>> 0;
+  }
+
+  // mulberry32: small, fast PRNG with a good spread.
+  function makeRng(seedStr) {
+    let a = hashSeed(String(seedStr));
+    return function () {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function newSeed() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let s = '';
+    for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+
+  const pick = (arr, rng) => arr[Math.floor(rng() * arr.length)];
+
+  // Picks a key from { key: weight } using the rng. Returns null if all weights are 0.
+  function pickWeighted(weights, rng) {
+    const entries = Object.entries(weights).filter(([, w]) => w > 0);
+    const total = entries.reduce((s, [, w]) => s + w, 0);
+    if (!total) return null;
+    let r = rng() * total;
+    for (const [k, w] of entries) {
+      if ((r -= w) < 0) return k;
+    }
+    return entries[entries.length - 1][0];
+  }
+
+  // ---------- Pools ----------
+
+  // Item kinds allowed by the active challenge modes.
+  function allowedKinds() {
+    let kinds = new Set(KINDS.map((k) => k.id));
+    for (const m of MODES) {
+      if (settings.modes[m.id] && m.kinds) kinds = new Set([...kinds].filter((k) => m.kinds.includes(k)));
+    }
+    return kinds;
+  }
+
+  // Effective weight per kind after modes and weights.
+  function effectiveWeights() {
+    const kinds = allowedKinds();
+    const w = {};
+    for (const k of KINDS) w[k.id] = kinds.has(k.id) ? Number(settings.weights[k.id]) || 0 : 0;
+    return w;
+  }
+
+  function itemAllowed(it) {
+    if (!settings.include.shiny && it.flags.includes('shiny')) return false;
+    if (!settings.include.legacy && it.flags.includes('legacy')) return false;
+    if (it.kind === 't') {
+      const [lo, hi] = settings.tiers[it.category];
+      if (it.tier < lo || it.tier > hi) return false;
+    }
+    return true;
+  }
+
+  // All items the class can equip in a category, after filters.
+  function slotPool(cls, category) {
+    const slotType = cls.slots[CATEGORIES.indexOf(category)];
+    const w = effectiveWeights();
+    return ITEMS.filter((it) => it.slot === slotType && w[it.kind] > 0 && itemAllowed(it));
+  }
+
+  // Weighted roll: pick an item kind by weight, then an item of that kind.
+  function rollItem(cls, category, rng) {
+    const pool = slotPool(cls, category);
+    if (!pool.length) return null;
+    const w = effectiveWeights();
+    const present = {};
+    for (const it of pool) present[it.kind] = w[it.kind];
+    const kind = pickWeighted(present, rng);
+    return pick(pool.filter((it) => it.kind === kind), rng);
+  }
+
+  // ST sets where every non ring piece fits the class and passes filters.
+  function setsForClass(cls) {
+    if (!effectiveWeights().st) return [];
+    return SETS.filter((set) => set.every((it) => {
+      if (!itemAllowed(it)) return false;
+      return it.slot === cls.slots[CATEGORIES.indexOf(it.category)];
+    }));
+  }
+
+  function enabledClasses() {
+    return CLASSES.filter((c) => !settings.classesOff.includes(c.id));
+  }
+
+  function enabledDungeons() {
+    return DUNGEONS.dungeons.filter((d) => settings.dungeonGroups.includes(d.group));
+  }
+
+  function rollEnchant(category, rng) {
+    if (!settings.include.enchants || !ENCHANTS.length) return null;
+    const pool = ENCHANTS.filter((e) => !e.slots || e.slots.includes(category));
+    return pool.length ? pick(pool, rng).name : null;
+  }
+
+  // ---------- Roll state ----------
+
+  const state = {
+    seed: '',
+    classId: null,
+    items: { weapon: null, ability: null, armor: null, ring: null },
+    enchants: { weapon: null, ability: null, armor: null, ring: null },
+    dungeon: null, // dungeon name
+    fromSet: false,
+    locks: { class: false, weapon: false, ability: false, armor: false, ring: false, dungeon: false },
+  };
+  let notices = [];
+
+  function currentClass() { return CLASS_BY_ID.get(state.classId) || null; }
+
+  // Unlocks items the class cannot use after a class change.
+  function dropIncompatibleLocks(cls) {
+    for (const c of CATEGORIES) {
+      const it = ITEM_BY_ID.get(state.items[c]);
+      if (state.locks[c] && it && it.slot !== cls.slots[CATEGORIES.indexOf(c)]) {
+        notices.push(`${it.name} was unlocked because ${cls.name} cannot equip it.`);
+        state.locks[c] = false;
+      }
+    }
+  }
+
+  function rollSlot(category, rng) {
+    const cls = currentClass();
+    const it = cls ? rollItem(cls, category, rng) : null;
+    state.items[category] = it ? it.id : null;
+    state.enchants[category] = it ? rollEnchant(category, rng) : null;
+  }
+
+  function rollClass(rng) {
+    const pool = enabledClasses();
+    if (!pool.length) {
+      notices.push('No classes are turned on. Enable at least one in Settings > Classes.');
+      return false;
+    }
+    state.classId = pick(pool, rng).id;
+    dropIncompatibleLocks(currentClass());
+    return true;
+  }
+
+  function rollDungeon(rng) {
+    const pool = enabledDungeons();
+    state.dungeon = pool.length ? pick(pool, rng).name : null;
+  }
+
+  // Full roll. Locked slots are kept.
+  function rollAll(seed) {
+    notices = [];
+    state.seed = seed || newSeed();
+    const rng = makeRng(state.seed);
+    if (!state.locks.class || !currentClass()) {
+      if (!rollClass(rng)) { render(); return; }
+    }
+    const cls = currentClass();
+    state.fromSet = false;
+
+    // ST set roll.
+    const open = CATEGORIES.filter((c) => !state.locks[c]);
+    if (settings.setChance > 0 && open.length && rng() * 100 < settings.setChance) {
+      const sets = setsForClass(cls);
+      if (sets.length) {
+        const set = pick(sets, rng);
+        for (const it of set) {
+          if (!state.locks[it.category]) {
+            state.items[it.category] = it.id;
+            state.enchants[it.category] = rollEnchant(it.category, rng);
+          }
+        }
+        // Fill slots the set does not cover.
+        for (const c of open) if (!set.some((it) => it.category === c)) rollSlot(c, rng);
+        state.fromSet = true;
+      } else {
+        notices.push(`No ST set fits ${cls.name} with the current filters. Rolled single items.`);
+      }
+    }
+    if (!state.fromSet) for (const c of open) rollSlot(c, rng);
+
+    if (settings.dungeonOn && !state.locks.dungeon) rollDungeon(rng);
+    finishRoll();
+  }
+
+  // Reroll one slot with a fresh random seed.
+  function rerollOne(slot) {
+    notices = [];
+    const rng = makeRng(newSeed());
+    if (slot === 'class') {
+      if (!rollClass(rng)) { render(); return; }
+      // Items that no longer fit get rerolled, locked ones were unlocked above.
+      const cls = currentClass();
+      for (const c of CATEGORIES) {
+        const it = ITEM_BY_ID.get(state.items[c]);
+        if (!state.locks[c] && (!it || it.slot !== cls.slots[CATEGORIES.indexOf(c)])) rollSlot(c, rng);
+      }
+    } else if (slot === 'dungeon') {
+      rollDungeon(rng);
+    } else {
+      rollSlot(slot, rng);
+    }
+    state.fromSet = false;
+    state.seed = '';
+    finishRoll();
+  }
+
+  function finishRoll() {
+    const cls = currentClass();
+    if (cls) {
+      for (const c of CATEGORIES) {
+        if (state.items[c] === null && !slotPool(cls, c).length) {
+          notices.push(`No ${CATEGORY_NAMES[c].toLowerCase()} fits ${cls.name} with the current filters.`);
+        }
+      }
+    }
+    addHistory();
+    writeHash();
+    render();
+  }
+
+  // ---------- Text helpers ----------
+
+  function kindLabel(it) {
+    if (it.kind === 't') return `T${it.tier}`;
+    if (it.kind === 'ut') return 'UT';
+    if (it.kind === 'st') return 'ST';
+    return 'Untiered';
+  }
+
+  function itemText(it) {
+    return `${it.typeName}: ${it.name} (${kindLabel(it)})`;
+  }
+
+  function wikiUrl(name) {
+    return 'https://www.realmeye.com/wiki/' + encodeURIComponent(name.toLowerCase().replace(/[\s']/g, '-'));
+  }
+
+  function rollAsText() {
+    const cls = currentClass();
+    if (!cls) return '';
+    const parts = [cls.name];
+    for (const c of CATEGORIES) {
+      const it = ITEM_BY_ID.get(state.items[c]);
+      let t = it ? itemText(it) : `${CATEGORY_NAMES[c]}: none`;
+      if (state.enchants[c]) t += ` [${state.enchants[c]}]`;
+      parts.push(t);
+    }
+    if (settings.dungeonOn && state.dungeon) parts.push(`Dungeon: ${state.dungeon}`);
+    const modes = MODES.filter((m) => settings.modes[m.id]).map((m) => m.name);
+    if (modes.length) parts.push(`Modes: ${modes.join(', ')}`);
+    return parts.join(' | ');
+  }
+
+  // ---------- Share link (URL hash) ----------
+  // Format: #c=<classId>&w=<id>&a=<id>&ar=<id>&r=<id>&d=<dungeon>&m=<modes>&s=<seed>
+
+  function writeHash() {
+    const p = new URLSearchParams();
+    if (state.classId !== null) p.set('c', state.classId);
+    const keys = { weapon: 'w', ability: 'a', armor: 'ar', ring: 'r' };
+    for (const c of CATEGORIES) if (state.items[c] !== null) p.set(keys[c], state.items[c]);
+    if (settings.dungeonOn && state.dungeon) p.set('d', state.dungeon);
+    const modes = MODES.filter((m) => settings.modes[m.id]).map((m) => m.id);
+    if (modes.length) p.set('m', modes.join(','));
+    if (state.seed) p.set('s', state.seed);
+    history.replaceState(null, '', '#' + p.toString());
+  }
+
+  // Loads a roll from the URL hash. Returns true if a roll was found.
+  function readHash() {
+    const p = new URLSearchParams(location.hash.slice(1));
+    const cls = CLASS_BY_ID.get(Number(p.get('c')));
+    if (!cls) return false;
+    state.classId = cls.id;
+    const keys = { weapon: 'w', ability: 'a', armor: 'ar', ring: 'r' };
+    for (const c of CATEGORIES) {
+      const it = ITEM_BY_ID.get(Number(p.get(keys[c])));
+      state.items[c] = it && it.slot === cls.slots[CATEGORIES.indexOf(c)] ? it.id : null;
+    }
+    state.dungeon = p.get('d');
+    state.seed = p.get('s') || '';
+    if (p.has('m')) {
+      const ids = p.get('m').split(',');
+      settings.modes = {};
+      for (const m of MODES) if (ids.includes(m.id)) settings.modes[m.id] = true;
+    }
+    return true;
+  }
+
+  // ---------- History ----------
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_HISTORY) || '[]'); } catch (e) { return []; }
+  }
+
+  function addHistory() {
+    if (!currentClass()) return;
+    const list = loadHistory();
+    list.unshift({
+      text: rollAsText(),
+      time: Date.now(),
+      state: { c: state.classId, i: { ...state.items }, d: state.dungeon, s: state.seed },
+    });
+    try { localStorage.setItem(STORAGE_HISTORY, JSON.stringify(list.slice(0, HISTORY_MAX))); } catch (e) { /* ignore */ }
+  }
+
+  function restoreHistory(entry) {
+    if (!entry || !entry.state || !CLASS_BY_ID.has(entry.state.c)) return;
+    state.classId = entry.state.c;
+    for (const c of CATEGORIES) state.items[c] = ITEM_BY_ID.has(entry.state.i[c]) ? entry.state.i[c] : null;
+    for (const c of CATEGORIES) state.enchants[c] = null;
+    state.dungeon = entry.state.d || null;
+    state.seed = entry.state.s || '';
+    state.fromSet = false;
+    notices = [];
+    writeHash();
+    render();
+  }
+
+  // ---------- Rendering ----------
+
+  const $ = (id) => document.getElementById(id);
+
+  const ICONS = {
+    lock: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 7V5a4 4 0 0 1 8 0v2h1v8H3V7h1zm2 0h4V5a2 2 0 0 0-4 0v2z"/></svg>',
+    unlock: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 7V5a4 4 0 0 1 7.7-1.5l-1.8.8A2 2 0 0 0 6 5v2h7v8H3V7h1z"/></svg>',
+    reroll: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5"/><path d="M13 2v3h-3" stroke-linejoin="round"/></svg>',
+  };
+
+  function setSprite(el, it) {
+    if (!it) {
+      el.classList.add('empty');
+      el.style.backgroundImage = '';
+      return;
+    }
+    const sheet = DATA.meta.sheet;
+    const box = el.clientWidth || 80;
+    const scale = box / sheet.cell;
+    el.classList.remove('empty');
+    el.style.backgroundImage = `url("${sheet.file}")`;
+    el.style.backgroundSize = `${sheet.w * scale}px ${sheet.h * scale}px`;
+    el.style.backgroundPosition = `-${it.x * scale}px -${it.y * scale}px`;
+  }
+
+  function actionButtons(container, slot, label) {
+    container.innerHTML = '';
+    const lock = document.createElement('button');
+    lock.type = 'button';
+    lock.className = 'icon-btn' + (state.locks[slot] ? ' locked' : '');
+    lock.innerHTML = state.locks[slot] ? ICONS.lock : ICONS.unlock;
+    lock.title = (state.locks[slot] ? 'Unlock ' : 'Lock ') + label;
+    lock.setAttribute('aria-label', lock.title);
+    lock.setAttribute('aria-pressed', String(state.locks[slot]));
+    lock.addEventListener('click', () => { state.locks[slot] = !state.locks[slot]; render(); });
+
+    const reroll = document.createElement('button');
+    reroll.type = 'button';
+    reroll.className = 'icon-btn';
+    reroll.innerHTML = ICONS.reroll;
+    reroll.title = 'Reroll ' + label;
+    reroll.setAttribute('aria-label', reroll.title);
+    reroll.addEventListener('click', () => rerollOne(slot));
+
+    container.append(lock, reroll);
+  }
+
+  // Builds the four slot cards once.
+  function buildSlots() {
+    const wrap = $('slots');
+    for (const c of CATEGORIES) {
+      const card = document.createElement('div');
+      card.className = 'panel slot';
+      card.id = 'slot-' + c;
+      card.innerHTML = `
+        <div class="sprite" aria-hidden="true"></div>
+        <div class="slot-body">
+          <span class="label"></span>
+          <p class="slot-name"></p>
+          <span class="badge"></span>
+          <span class="enchant"></span>
+        </div>
+        <div class="slot-actions"></div>`;
+      wrap.appendChild(card);
+    }
+  }
+
+  function render() {
+    const cls = currentClass();
+
+    // Class card
+    $('className').textContent = cls ? cls.name : 'Press Randomize';
+    $('classSlots').textContent = cls
+      ? cls.slots.slice(0, 3).map((t) => DATA.slotTypes[t].name).join(' / ') + ' / Ring'
+      : '';
+    // Class emblem: the class's starter (lowest tier) weapon.
+    const starter = cls
+      ? ITEMS.filter((it) => it.slot === cls.slots[0] && it.kind === 't').sort((a, b) => a.tier - b.tier)[0]
+      : null;
+    setSprite($('classSprite'), starter);
+    $('classCard').classList.toggle('is-locked', state.locks.class);
+    actionButtons($('classCard').querySelector('.slot-actions'), 'class', 'class');
+
+    // Item slots
+    for (const c of CATEGORIES) {
+      const card = $('slot-' + c);
+      const it = ITEM_BY_ID.get(state.items[c]);
+      const typeName = cls ? DATA.slotTypes[cls.slots[CATEGORIES.indexOf(c)]].name : CATEGORY_NAMES[c];
+      card.className = 'panel slot' + (it ? ' kind-' + it.kind : cls ? ' empty' : '')
+        + (state.locks[c] ? ' is-locked' : '');
+      card.querySelector('.label').textContent = typeName;
+      const nameEl = card.querySelector('.slot-name');
+      nameEl.textContent = '';
+      if (it) {
+        const a = document.createElement('a');
+        a.href = wikiUrl(it.name);
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = it.name;
+        a.title = 'Open on RealmEye wiki';
+        nameEl.appendChild(a);
+      } else {
+        nameEl.textContent = cls ? 'No item fits the current filters' : '-';
+      }
+      const badge = card.querySelector('.badge');
+      badge.className = 'badge' + (it ? ' ' + it.kind : '');
+      badge.textContent = it ? kindLabel(it) : '';
+      badge.hidden = !it;
+      const ench = card.querySelector('.enchant');
+      ench.textContent = state.enchants[c] ? 'Enchant: ' + state.enchants[c] : '';
+      ench.hidden = !state.enchants[c];
+      setSprite(card.querySelector('.sprite'), it);
+      actionButtons(card.querySelector('.slot-actions'), c, CATEGORY_NAMES[c].toLowerCase());
+    }
+
+    // Dungeon
+    const dCard = $('dungeonCard');
+    dCard.hidden = !settings.dungeonOn;
+    const dungeon = DUNGEONS.dungeons.find((d) => d.name === state.dungeon);
+    $('dungeonName').textContent = state.dungeon || '-';
+    const group = dungeon && DUNGEONS.groups.find((g) => g.id === dungeon.group);
+    $('dungeonGroup').textContent = group ? group.name : '';
+    dCard.classList.toggle('is-locked', state.locks.dungeon);
+    actionButtons(dCard.querySelector('.slot-actions'), 'dungeon', 'dungeon');
+
+    // Seed box
+    $('seedInput').value = state.seed;
+
+    // Rules
+    const active = MODES.filter((m) => settings.modes[m.id]);
+    $('rulesPanel').hidden = !active.length && !state.fromSet;
+    const ul = $('rulesList');
+    ul.innerHTML = '';
+    if (state.fromSet) {
+      const li = document.createElement('li');
+      li.innerHTML = '<strong>ST set</strong> ';
+      li.append('This roll is a full or partial ST set.');
+      ul.appendChild(li);
+    }
+    for (const m of active) {
+      const li = document.createElement('li');
+      const strong = document.createElement('strong');
+      strong.textContent = m.name;
+      li.append(strong, ' ' + m.rule);
+      ul.appendChild(li);
+    }
+
+    // Notices
+    $('notice').hidden = !notices.length;
+    $('notice').textContent = notices.join(' ');
+
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = loadHistory();
+    $('historyCount').textContent = list.length ? `(${list.length})` : '';
+    const ol = $('historyList');
+    ol.innerHTML = '';
+    list.forEach((entry) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = entry.text;
+      b.title = 'Restore this roll';
+      b.addEventListener('click', () => restoreHistory(entry));
+      li.appendChild(b);
+      ol.appendChild(li);
+    });
+  }
+
+  // ---------- Settings UI ----------
+
+  function checkbox(labelText, checked, onChange, opts = {}) {
+    const label = document.createElement('label');
+    label.className = 'check' + (opts.disabled ? ' disabled' : '');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.disabled = !!opts.disabled;
+    if (opts.id) input.id = opts.id;
+    input.addEventListener('change', () => onChange(input.checked, input));
+    const span = document.createElement('span');
+    span.textContent = labelText;
+    if (opts.small) {
+      const small = document.createElement('small');
+      small.textContent = opts.small;
+      span.appendChild(small);
+    }
+    label.append(input, span);
+    return label;
+  }
+
+  function changed() {
+    saveSettings();
+    writeHash();
+    render();
+  }
+
+  function buildSettings() {
+    // Modes
+    const modeList = $('modeList');
+    modeList.innerHTML = '';
+    for (const m of MODES) {
+      const small = (m.long ? m.long + '. ' : '') + m.rule;
+      modeList.appendChild(checkbox(m.name, !!settings.modes[m.id], (on) => {
+        settings.modes[m.id] = on;
+        if (on && m.excludes) for (const x of m.excludes) settings.modes[x] = false;
+        buildSettings();
+        changed();
+      }, { small }));
+    }
+
+    // Weights
+    const weightList = $('weightList');
+    weightList.innerHTML = '';
+    const kinds = allowedKinds();
+    for (const k of KINDS) {
+      if (!KIND_COUNTS[k.id]) continue;
+      const row = document.createElement('div');
+      row.className = 'weight-row';
+      const name = document.createElement('label');
+      name.className = 'name ' + k.id;
+      name.textContent = `${k.name} (${KIND_COUNTS[k.id]})`;
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = 0;
+      input.max = 100;
+      input.value = settings.weights[k.id];
+      input.id = 'weight-' + k.id;
+      input.disabled = !kinds.has(k.id);
+      name.htmlFor = input.id;
+      const out = document.createElement('output');
+      out.textContent = kinds.has(k.id) ? settings.weights[k.id] : 'off';
+      input.addEventListener('input', () => {
+        settings.weights[k.id] = Number(input.value);
+        out.textContent = input.value;
+        saveSettings();
+      });
+      row.append(name, input, out);
+      weightList.appendChild(row);
+    }
+
+    // Include toggles
+    const inc = $('includeList');
+    inc.innerHTML = '';
+    inc.appendChild(checkbox('Shiny items', settings.include.shiny, (on) => { settings.include.shiny = on; changed(); }));
+    inc.appendChild(checkbox('Legacy items', settings.include.legacy, (on) => { settings.include.legacy = on; changed(); }));
+    inc.appendChild(checkbox('Enchantments', settings.include.enchants && ENCHANTS.length > 0,
+      (on) => { settings.include.enchants = on; changed(); },
+      { disabled: !ENCHANTS.length, small: ENCHANTS.length ? 'Adds one random enchant to each item.' : 'No enchant data in this build yet.' }));
+
+    // Set chance
+    $('setChance').value = settings.setChance;
+    $('setChanceOut').textContent = settings.setChance + '%';
+
+    // Tier limits
+    const tierList = $('tierList');
+    tierList.innerHTML = '';
+    for (const c of CATEGORIES) {
+      const max = MAX_TIER[c] || 0;
+      const row = document.createElement('div');
+      row.className = 'tier-row';
+      const name = document.createElement('span');
+      name.textContent = CATEGORY_NAMES[c];
+      const mk = (idx) => {
+        const sel = document.createElement('select');
+        sel.setAttribute('aria-label', `${CATEGORY_NAMES[c]} ${idx ? 'max' : 'min'} tier`);
+        for (let t = 0; t <= max; t++) {
+          const o = document.createElement('option');
+          o.value = t;
+          o.textContent = 'T' + t;
+          sel.appendChild(o);
+        }
+        sel.value = settings.tiers[c][idx];
+        sel.addEventListener('change', () => {
+          settings.tiers[c][idx] = Number(sel.value);
+          // Keep min <= max.
+          const [lo, hi] = settings.tiers[c];
+          if (lo > hi) settings.tiers[c] = idx ? [hi, hi] : [lo, lo];
+          buildSettings();
+          changed();
+        });
+        return sel;
+      };
+      const to = document.createElement('span');
+      to.textContent = 'to';
+      row.append(name, mk(0), to, mk(1));
+      tierList.appendChild(row);
+    }
+
+    // Classes
+    const classList = $('classList');
+    classList.innerHTML = '';
+    for (const cls of CLASSES) {
+      classList.appendChild(checkbox(cls.name, !settings.classesOff.includes(cls.id), (on) => {
+        settings.classesOff = settings.classesOff.filter((id) => id !== cls.id);
+        if (!on) settings.classesOff.push(cls.id);
+        saveSettings();
+      }));
+    }
+
+    // Dungeons
+    $('dungeonOn').checked = settings.dungeonOn;
+    const dg = $('dungeonGroupList');
+    dg.innerHTML = '';
+    for (const g of DUNGEONS.groups) {
+      const count = DUNGEONS.dungeons.filter((d) => d.group === g.id).length;
+      dg.appendChild(checkbox(`${g.name} (${count})`, settings.dungeonGroups.includes(g.id), (on) => {
+        settings.dungeonGroups = settings.dungeonGroups.filter((id) => id !== g.id);
+        if (on) settings.dungeonGroups.push(g.id);
+        saveSettings();
+      }));
+    }
+  }
+
+  // ---------- Misc UI ----------
+
+  let toastTimer = null;
+  function toast(msg) {
+    $('toast').textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $('toast').textContent = ''; }, 2000);
+  }
+
+  async function copy(text, msg) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(msg);
+    } catch (e) {
+      window.prompt('Copy this:', text);
+    }
+  }
+
+  function renderDataInfo() {
+    const m = DATA.meta;
+    const date = new Date(m.generated).toISOString().slice(0, 10);
+    const el = $('dataInfo');
+    el.textContent = `${CLASSES.length} classes, ${ITEMS.length} items, ${SETS.length} ST sets. Data: ${m.source} (built ${date})`;
+    el.classList.toggle('stale', /snapshot/i.test(m.source));
+  }
+
+  function bindEvents() {
+    $('rollBtn').addEventListener('click', () => rollAll());
+    $('seedRollBtn').addEventListener('click', () => rollAll($('seedInput').value.trim() || undefined));
+    $('seedInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') rollAll($('seedInput').value.trim() || undefined);
+    });
+    $('copyLinkBtn').addEventListener('click', () => copy(location.href, 'Link copied'));
+    $('copyTextBtn').addEventListener('click', () => copy(rollAsText(), 'Text copied'));
+    $('clearHistoryBtn').addEventListener('click', () => {
+      try { localStorage.removeItem(STORAGE_HISTORY); } catch (e) { /* ignore */ }
+      renderHistory();
+    });
+    $('setChance').addEventListener('input', (e) => {
+      settings.setChance = Number(e.target.value);
+      $('setChanceOut').textContent = settings.setChance + '%';
+      saveSettings();
+    });
+    $('dungeonOn').addEventListener('change', (e) => {
+      settings.dungeonOn = e.target.checked;
+      if (settings.dungeonOn && !state.dungeon) rollDungeon(makeRng(newSeed()));
+      changed();
+    });
+    $('classesAll').addEventListener('click', () => { settings.classesOff = []; buildSettings(); saveSettings(); });
+    $('classesNone').addEventListener('click', () => {
+      settings.classesOff = CLASSES.map((c) => c.id);
+      buildSettings();
+      saveSettings();
+    });
+    $('resetBtn').addEventListener('click', () => {
+      settings = defaultSettings();
+      buildSettings();
+      changed();
+    });
+    // Space or R rolls when focus is not in a text field.
+    document.addEventListener('keydown', (e) => {
+      if (e.target.matches('input, select, textarea, button, summary')) return;
+      if (e.key === 'r' || e.key === ' ') { e.preventDefault(); rollAll(); }
+    });
+  }
+
+  // ---------- Start ----------
+
+  buildSlots();
+  bindEvents();
+  const hadHash = readHash();
+  buildSettings();
+  renderDataInfo();
+  if (hadHash) render();
+  else rollAll();
+})();

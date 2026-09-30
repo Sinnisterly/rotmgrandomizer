@@ -1,0 +1,52 @@
+name: Update item data
+
+# Rebuilds data/items.js and data/renders.png from RealmEye and commits them.
+# Run it from the Actions tab after a game patch.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - tools/build-data.mjs
+      - .github/workflows/update-data.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build data from RealmEye
+        run: node tools/build-data.mjs
+
+      - name: Probe other sources (log only)
+        continue-on-error: true
+        run: |
+          for u in https://umienjoyers.com/wiki/items https://tracker.realmshark.cc/; do
+            echo "== $u"
+            curl -sSL -A "Mozilla/5.0" "$u" -o page.html -w "HTTP %{http_code}, %{size_download} bytes\n" || true
+            grep -oE '(src|href)="[^"]+"' page.html | sort -u | head -40 || true
+          done
+          rm -f page.html
+
+      - name: Commit changes
+        run: |
+          if git diff --quiet -- data; then
+            echo "No data changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "Update item data from RealmEye"
+          git push
