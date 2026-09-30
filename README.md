@@ -1,45 +1,58 @@
-# ROTMG Exalt Randomizer
+<p align="center">
+  <img src="data/img/assets/rotmg-randomizer-logo-dark.png" alt="ROTMG Exalt Randomizer" width="480">
+</p>
 
-A class, item and dungeon randomizer for Realm of the Mad God Exalt. It is a static site with no build step, so it runs on GitHub Pages.
+A randomizer for Realm of the Mad God Exalt. Press one button and get a random class with a full set of gear that class can actually equip. Roll a dungeon to run with it, add challenge rules, and share the result with friends.
 
-## Features
+## How to use
 
-- Rolls one of the 19 classes and 4 items the class can equip (weapon, ability, armor, ring).
-- Weighted item types (Tiered, UT, ST), with tier limits per slot.
-- Toggles for shiny, limited edition, legacy and reskinned items.
-- Full ST set rolls, with an adjustable chance.
-- Enchantment rolls (1 to 4 per item) that never combine incompatible enchantments.
-- Challenge modes. Iron Man and UPE filter the item pool. PPE, NPE, HPE, TPE, BPE, GPE and Realmlocke show their rules.
-- Lock or reroll any single slot.
-- Seeds, share links, copy as text, and roll history.
-- Dungeon randomizer, filtered by RealmEye difficulty rating and dungeon type.
+1. Press **Randomize**. You get a class plus a weapon, ability, armor and ring for that class.
+2. Don't like one slot? Press its **reroll** button to reroll only that slot.
+3. Want to keep something? Press its **lock** button. Locked slots stay when you randomize again.
+4. Press **Roll dungeon** to pick a dungeon to run.
+5. Use **Copy link** to share your exact roll, or **Copy as text** to paste it into Discord.
 
-## Hosting on GitHub Pages
+Tip: press **R** or **Space** to randomize without clicking.
 
-Settings > Pages > Source: "Deploy from a branch", then pick the branch and `/ (root)`.
+## Settings
 
-## Updating data
+Open the settings panel on the right. Press **Hide** to collapse it and use the full width.
 
-All item, class, enchantment and dungeon data and the sprite sheet come from [RealmEye](https://www.realmeye.com).
-
-- **GitHub:** Actions > "Update item data" > Run workflow. The workflow downloads the current RealmEye files and wiki pages, rebuilds `data/`, and commits the result.
-- **Locally (Node 18+):** `node tools/fetch-wiki.mjs && node tools/build-data.mjs`
-- **Rebuild without downloading:** `node tools/build-data.mjs --offline`
-
-Raw downloads are kept in `data/source/`, so every build can be reproduced.
-
-When a new class ships, add its equipment to `CLASS_SLOTS` in `tools/build-data.mjs`. If it brings a new item type, also add the type to `SLOT_TYPES` and the type's wiki page to `tools/fetch-wiki.mjs`.
-
-## Files
-
-| Path | Purpose |
+| Setting | What it does |
 | --- | --- |
-| `index.html`, `css/styles.css`, `js/app.js` | The app |
-| `data/items.js`, `data/renders.png` | Classes, items, ST sets and the sprite sheet |
-| `data/enchants.js` | Enchantments |
-| `data/dungeons.js` | Dungeons with difficulty |
-| `data/source/` | Raw RealmEye files the data is built from |
-| `tools/fetch-wiki.mjs` | Downloads RealmEye wiki pages |
-| `tools/build-data.mjs` | Builds `data/` from the RealmEye files |
+| Challenge modes | Pick a mode such as PPE, NPE, UPE or TPE to see its full rules. Modes marked "pool" also change which items can roll. |
+| Item types | How often Tiered, UT and ST items show up. Set one to 0 to turn it off. You can also turn off Shiny, Limited, Legacy and Reskinned items. |
+| Enchantments | Adds 1 to 4 random enchantments to each item. Incompatible enchantments never roll together. |
+| ST sets | The chance to roll a full ST set for the class instead of single items. |
+| Tier limits | The lowest and highest tier allowed for tiered items in each slot. |
+| Classes | Which classes can be rolled. |
+| Dungeons | Filter by difficulty (Beginner, Adept, Hard, Exalt) and dungeon type. |
+| Display | Turn the slot machine animation on or off. |
 
-Made by [Loathe](https://github.com/Sinnisterly). Fan made. Not affiliated with DECA Games.
+Settings are saved in your browser.
+
+## Seeds
+
+Every roll has a seed. Type a seed and press **Use seed** to get the same roll again with the same settings. Your last 25 rolls are listed under **History**.
+
+## Where the data comes from
+
+Items, classes, enchantments, dungeons and all images come from [RealmEye](https://www.realmeye.com). The data is refreshed after game updates, so new items show up once RealmEye lists them.
+
+Spotted a wrong or missing item? Open an issue on this repository.
+
+## Support
+
+Made by [Loathe](https://github.com/Sinnisterly). Discord: @Sinnisterly.
+If you enjoy it, you can support me on [Ko-fi](https://ko-fi.com/loathed).
+
+<details>
+<summary>For maintainers: updating the data</summary>
+
+- Run **Actions > Update item data > Run workflow** on GitHub. It downloads the current RealmEye data and commits it.
+- Locally (Node 18 or newer): `node tools/fetch-wiki.mjs && node tools/build-data.mjs`
+- When a new class ships, add its equipment to `CLASS_SLOTS` in `tools/build-data.mjs`.
+
+</details>
+
+Fan made. Not affiliated with DECA Games. Realm of the Mad God is a trademark of DECA Games.

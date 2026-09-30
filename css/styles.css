@@ -39,10 +39,11 @@ button, input, select { font: inherit; color: inherit; }
   border-bottom: 2px solid var(--gold-dark);
   background: #181818;
 }
-.brand { margin: 0; line-height: 1; text-transform: uppercase; }
-.brand span { display: block; }
-.brand-top { font-size: 13px; letter-spacing: 3px; color: var(--gold); }
-.brand-main { margin-top: 2px; font-size: 26px; font-weight: 800; letter-spacing: 2px; color: var(--text); }
+.brand { margin: 0; line-height: 0; }
+.brand img { display: block; width: auto; height: 76px; max-width: 100%; }
+@media (max-width: 560px) {
+  .brand img { height: 56px; }
+}
 .kofi {
   display: inline-flex;
   align-items: center;
