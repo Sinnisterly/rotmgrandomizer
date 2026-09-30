@@ -58,12 +58,13 @@
 
       <!-- Dungeon randomizer -->
       <div class="panel dungeon-card" id="dungeonCard">
+        <div class="sprite big dungeon-img" id="dungeonImg" aria-hidden="true"></div>
         <div class="dungeon-text">
           <span class="label">Dungeon</span>
           <h2 id="dungeonName">-</h2>
           <p class="sub" id="dungeonGroup"></p>
         </div>
-        <div class="slot-actions" data-slot="dungeon"></div>
+        <button class="btn btn-dungeon" id="dungeonBtn" type="button">Roll dungeon</button>
       </div>
 
       <details class="panel history" id="historyPanel">
@@ -76,6 +77,11 @@
     <!-- Right: settings -->
     <aside class="settings" aria-label="Settings">
       <h2 class="settings-title">Settings</h2>
+
+      <details class="panel">
+        <summary>Display</summary>
+        <div id="displayList" class="check-list"></div>
+      </details>
 
       <details class="panel" open>
         <summary>Challenge modes</summary>

@@ -95,6 +95,7 @@
       include: Object.fromEntries(FLAGS.map((f) => [f.id, true])),
       enchants: { on: false, count: 1, unique: false },
       setChance: 0,
+      animate: true,
       tiers,
       classesOff: [],
       dungeonOn: true,
@@ -314,13 +315,22 @@
     state.dungeon = pool.length ? pick(pool, rng).name : null;
   }
 
+  // Dungeon has its own button, separate from the class and item roll.
+  function rollDungeonNow() {
+    rollDungeon(makeRng(newSeed()));
+    writeHash();
+    animate(['dungeon']);
+  }
+
   // Full roll. Locked slots are kept.
   function rollAll(seed) {
     notices = [];
     state.seed = seed || newSeed();
     const rng = makeRng(state.seed);
+    const spun = [];
     if (!state.locks.class || !currentClass()) {
       if (!rollClass(rng)) { render(); return; }
+      spun.push('class');
     }
     const cls = currentClass();
     state.fromSet = null;
@@ -345,15 +355,14 @@
       }
     }
     if (!state.fromSet) for (const c of open) rollSlot(c, rng);
-
-    if (settings.dungeonOn && !state.locks.dungeon) rollDungeon(rng);
-    finishRoll();
+    finishRoll(spun.concat(open));
   }
 
   // Reroll one slot with a fresh random seed.
   function rerollOne(slot) {
     notices = [];
     const rng = makeRng(newSeed());
+    const before = { ...state.items };
     if (slot === 'class') {
       if (!rollClass(rng)) { render(); return; }
       // Items that no longer fit get rerolled, locked ones were unlocked above.
@@ -362,17 +371,16 @@
         const it = ITEM_BY_ID.get(state.items[c]);
         if (!state.locks[c] && (!it || it.slot !== cls.slots[CATEGORIES.indexOf(c)])) rollSlot(c, rng);
       }
-    } else if (slot === 'dungeon') {
-      rollDungeon(rng);
     } else {
       rollSlot(slot, rng);
     }
     state.fromSet = null;
     state.seed = '';
-    finishRoll();
+    finishRoll([slot, ...CATEGORIES.filter((c) => c !== slot && state.items[c] !== before[c])]);
   }
 
-  function finishRoll() {
+  // spun: slots that changed and should play the slot machine animation.
+  function finishRoll(spun) {
     const cls = currentClass();
     if (cls) {
       for (const c of CATEGORIES) {
@@ -383,7 +391,7 @@
     }
     addHistory();
     writeHash();
-    render();
+    animate(spun);
   }
 
   // ---------- Text helpers ----------
@@ -563,83 +571,138 @@
     }
   }
 
-  function render() {
-    const cls = currentClass();
+  // ---------- Slot drawing ----------
+  // Each draw* function paints one card. render* functions paint the final
+  // state; the slot machine animation paints random frames with the same
+  // draw functions first.
 
-    // Class card
+  function cardFor(slot) {
+    if (slot === 'class') return $('classCard');
+    if (slot === 'dungeon') return $('dungeonCard');
+    return $('slot-' + slot);
+  }
+
+  function setClassImage(el, cls) {
+    if (cls && cls.img) {
+      el.classList.remove('empty');
+      el.style.backgroundImage = `url("${cls.img}")`;
+      el.style.backgroundSize = 'contain';
+      el.style.backgroundPosition = 'center';
+      return;
+    }
+    // Fallback: the class's starter weapon.
+    const starter = cls
+      ? ITEMS.filter((it) => it.slot === cls.slots[0] && it.kind === 't').sort((a, b) => a.tier - b.tier)[0]
+      : null;
+    setSprite(el, starter);
+  }
+
+  function drawClass(cls) {
     $('className').textContent = cls ? cls.name : 'Press Randomize';
     $('classSlots').textContent = cls
       ? cls.slots.slice(0, 3).map((t) => DATA.slotTypes[t].name).join(' / ') + ' / Ring'
       : '';
-    // Class emblem: the class's starter (lowest tier) weapon.
-    const starter = cls
-      ? ITEMS.filter((it) => it.slot === cls.slots[0] && it.kind === 't').sort((a, b) => a.tier - b.tier)[0]
-      : null;
-    setSprite($('classSprite'), starter);
+    setClassImage($('classSprite'), cls);
+  }
+
+  function addBadge(parent, cls, label) {
+    const b = document.createElement('span');
+    b.className = 'badge ' + cls;
+    b.textContent = label;
+    parent.appendChild(b);
+  }
+
+  // Paints an item card. "full" adds the wiki link, flags and enchantments.
+  function drawItem(c, it, full) {
+    const cls = currentClass();
+    const card = $('slot-' + c);
+    const typeName = it ? it.typeName
+      : cls ? DATA.slotTypes[cls.slots[CATEGORIES.indexOf(c)]].name : CATEGORY_NAMES[c];
+    card.querySelector('.label').textContent = typeName;
+    const nameEl = card.querySelector('.slot-name');
+    nameEl.textContent = '';
+    if (it && full) {
+      const a = document.createElement('a');
+      a.href = wikiUrl(it.name);
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = it.name;
+      a.title = 'Open on RealmEye wiki';
+      nameEl.appendChild(a);
+    } else {
+      nameEl.textContent = it ? it.name : cls ? 'No item fits the current filters' : '-';
+    }
+    const badges = card.querySelector('.badges');
+    badges.innerHTML = '';
+    if (it) {
+      addBadge(badges, it.kind, kindLabel(it));
+      if (full) {
+        if (isShiny(it)) addBadge(badges, 'shiny', 'Shiny');
+        if (it.flags.includes('limited')) addBadge(badges, 'flag', 'Limited');
+        if (it.flags.includes('legacy')) addBadge(badges, 'flag', 'Legacy');
+        if (it.flags.includes('reskin')) addBadge(badges, 'flag', 'Reskin');
+      }
+    }
+    const ench = card.querySelector('.enchants');
+    ench.innerHTML = '';
+    const list = full ? state.enchants[c] : [];
+    for (const e of list) {
+      const li = document.createElement('li');
+      li.textContent = enchantLabel(e);
+      li.title = ENCHANTS[e[0]].effect;
+      ench.appendChild(li);
+    }
+    ench.hidden = !list.length;
+    setSprite(card.querySelector('.sprite'), it);
+  }
+
+  function drawDungeon(d) {
+    $('dungeonName').textContent = d ? d.name : '-';
+    const group = d && DUNGEONS.groups.find((g) => g.id === d.group);
+    const section = d && DUNGEONS.sections.find((x) => x.id === d.section);
+    $('dungeonGroup').textContent = d
+      ? `${group.name}, difficulty ${d.difficulty} (${section.name})`
+      : enabledDungeons().length ? 'Press Roll dungeon' : 'No dungeon matches the dungeon filters';
+    const img = $('dungeonImg');
+    if (d && d.img) {
+      img.classList.remove('empty');
+      img.style.backgroundImage = `url("${d.img}")`;
+    } else {
+      img.classList.add('empty');
+      img.style.backgroundImage = '';
+    }
+  }
+
+  function renderClass() {
+    drawClass(currentClass());
     $('classCard').classList.toggle('is-locked', state.locks.class);
     actionButtons($('classCard').querySelector('.slot-actions'), 'class', 'class');
+  }
 
-    // Item slots
-    for (const c of CATEGORIES) {
-      const card = $('slot-' + c);
-      const it = ITEM_BY_ID.get(state.items[c]);
-      const typeName = cls ? DATA.slotTypes[cls.slots[CATEGORIES.indexOf(c)]].name : CATEGORY_NAMES[c];
-      card.className = 'panel slot' + (it ? ' kind-' + it.kind : cls ? ' empty' : '')
-        + (state.locks[c] ? ' is-locked' : '');
-      card.querySelector('.label').textContent = typeName;
-      const nameEl = card.querySelector('.slot-name');
-      nameEl.textContent = '';
-      if (it) {
-        const a = document.createElement('a');
-        a.href = wikiUrl(it.name);
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.textContent = it.name;
-        a.title = 'Open on RealmEye wiki';
-        nameEl.appendChild(a);
-      } else {
-        nameEl.textContent = cls ? 'No item fits the current filters' : '-';
-      }
-      const badges = card.querySelector('.badges');
-      badges.innerHTML = '';
-      if (it) {
-        const add = (cls, label) => {
-          const b = document.createElement('span');
-          b.className = 'badge ' + cls;
-          b.textContent = label;
-          badges.appendChild(b);
-        };
-        add(it.kind, kindLabel(it));
-        if (isShiny(it)) add('shiny', 'Shiny');
-        if (it.flags.includes('limited')) add('flag', 'Limited');
-        if (it.flags.includes('legacy')) add('flag', 'Legacy');
-        if (it.flags.includes('reskin')) add('flag', 'Reskin');
-      }
-      const ench = card.querySelector('.enchants');
-      ench.innerHTML = '';
-      for (const e of state.enchants[c]) {
-        const li = document.createElement('li');
-        li.textContent = enchantLabel(e);
-        li.title = ENCHANTS[e[0]].effect;
-        ench.appendChild(li);
-      }
-      ench.hidden = !state.enchants[c].length;
-      setSprite(card.querySelector('.sprite'), it);
-      actionButtons(card.querySelector('.slot-actions'), c, CATEGORY_NAMES[c].toLowerCase());
-    }
+  function renderItem(c) {
+    const cls = currentClass();
+    const it = ITEM_BY_ID.get(state.items[c]) || null;
+    drawItem(c, it, true);
+    $('slot-' + c).className = 'panel slot' + (it ? ' kind-' + it.kind : cls ? ' empty' : '')
+      + (state.locks[c] ? ' is-locked' : '');
+    actionButtons($('slot-' + c).querySelector('.slot-actions'), c, CATEGORY_NAMES[c].toLowerCase());
+  }
 
-    // Dungeon
-    const dCard = $('dungeonCard');
-    dCard.hidden = !settings.dungeonOn;
-    const dungeon = DUNGEONS.dungeons.find((d) => d.name === state.dungeon);
-    $('dungeonName').textContent = state.dungeon || '-';
-    const group = dungeon && DUNGEONS.groups.find((g) => g.id === dungeon.group);
-    const section = dungeon && DUNGEONS.sections.find((x) => x.id === dungeon.section);
-    $('dungeonGroup').textContent = dungeon
-      ? `${group.name}, difficulty ${dungeon.difficulty} (${section.name})`
-      : settings.dungeonOn ? 'No dungeon matches the dungeon filters' : '';
-    dCard.classList.toggle('is-locked', state.locks.dungeon);
-    actionButtons(dCard.querySelector('.slot-actions'), 'dungeon', 'dungeon');
+  function renderDungeon() {
+    $('dungeonCard').hidden = !settings.dungeonOn;
+    drawDungeon(DUNGEONS.dungeons.find((d) => d.name === state.dungeon) || null);
+  }
+
+  function renderSlot(slot) {
+    if (slot === 'class') renderClass();
+    else if (slot === 'dungeon') renderDungeon();
+    else renderItem(slot);
+  }
+
+  function render() {
+    renderClass();
+    for (const c of CATEGORIES) renderItem(c);
+    renderDungeon();
 
     // Seed box
     $('seedInput').value = state.seed;
@@ -668,6 +731,69 @@
     $('notice').textContent = notices.join(' ');
 
     renderHistory();
+  }
+
+  // ---------- Slot machine animation ----------
+
+  let animToken = 0;
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SPIN_ORDER = ['class', ...CATEGORIES, 'dungeon'];
+
+  // Returns a function that paints one random frame for the slot, or null.
+  function frameDrawer(slot) {
+    const rand = () => Math.random();
+    if (slot === 'class') {
+      const pool = enabledClasses();
+      return pool.length ? () => drawClass(pick(pool, rand)) : null;
+    }
+    if (slot === 'dungeon') {
+      const pool = enabledDungeons();
+      return pool.length ? () => drawDungeon(pick(pool, rand)) : null;
+    }
+    const cls = currentClass();
+    const pool = cls ? slotPool(cls, slot) : [];
+    return pool.length > 1 ? () => drawItem(slot, pick(pool, rand), false) : null;
+  }
+
+  // Draws the final state, then spins the given slots and lands them one by one.
+  function animate(slots) {
+    const token = ++animToken;
+    for (const s of SPIN_ORDER) cardFor(s).classList.remove('spinning', 'landed');
+    render();
+    if (!settings.animate || reduceMotion || !slots.length) return;
+
+    const order = SPIN_ORDER.filter((s) => slots.includes(s));
+    const spins = order.map((s, i) => ({ slot: s, draw: frameDrawer(s), stopAt: 700 + i * 280, last: 0 }))
+      .filter((x) => x.draw);
+    for (const x of spins) cardFor(x.slot).classList.add('spinning');
+    const start = performance.now();
+
+    function tick(now) {
+      if (token !== animToken) return;
+      const t = now - start;
+      let running = false;
+      for (const x of spins) {
+        if (x.done) continue;
+        if (t >= x.stopAt) {
+          x.done = true;
+          const card = cardFor(x.slot);
+          card.classList.remove('spinning');
+          renderSlot(x.slot);
+          card.classList.add('landed');
+          setTimeout(() => card.classList.remove('landed'), 400);
+          continue;
+        }
+        running = true;
+        // Frames slow down as the slot gets close to stopping.
+        const p = t / x.stopAt;
+        if (now - x.last >= 45 + 170 * p * p) {
+          x.draw();
+          x.last = now;
+        }
+      }
+      if (running) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
   }
 
   function renderHistory() {
@@ -716,6 +842,12 @@
   }
 
   function buildSettings() {
+    // Display
+    const disp = $('displayList');
+    disp.innerHTML = '';
+    disp.appendChild(checkbox('Slot machine animation', settings.animate, (on) => { settings.animate = on; saveSettings(); },
+      { small: reduceMotion ? 'Off because your system asks for reduced motion.' : 'Items spin before they land.', disabled: reduceMotion }));
+
     // Modes
     const modeList = $('modeList');
     modeList.innerHTML = '';
@@ -906,6 +1038,7 @@
 
   function bindEvents() {
     $('rollBtn').addEventListener('click', () => rollAll());
+    $('dungeonBtn').addEventListener('click', () => rollDungeonNow());
     $('seedRollBtn').addEventListener('click', () => rollAll($('seedInput').value.trim() || undefined));
     $('seedInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') rollAll($('seedInput').value.trim() || undefined);
@@ -952,5 +1085,8 @@
   buildSettings();
   renderDataInfo();
   if (hadHash) render();
-  else rollAll();
+  else {
+    rollDungeon(makeRng(newSeed()));
+    rollAll();
+  }
 })();

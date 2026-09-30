@@ -105,6 +105,13 @@ function decode(s) {
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
 }
 
+// Same slug rule as tools/fetch-wiki.mjs. Returns the image path if the file exists.
+const slug = (s) => s.toLowerCase().replace(/&#39;|’|'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function imagePath(kind, name) {
+  const rel = `data/img/${kind}/${slug(name)}.png`;
+  return fs.existsSync(path.join(ROOT, rel)) ? rel : null;
+}
+
 const text = (html) => norm(html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' '));
 const cells = (rowHtml) => [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => m[1]);
 const rows = (html) => [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => m[1]);
@@ -289,7 +296,7 @@ function parseDungeons() {
       if (!name || !Number.isFinite(diff) || seen.has(name)) continue;
       seen.add(name);
       const group = DUNGEON_GROUPS.find((g) => diff <= g.max).id;
-      out.push({ name, section: sec[0], difficulty: diff, group });
+      out.push({ name, section: sec[0], difficulty: diff, group, img: imagePath('dungeons', name) });
     }
   }
   return out;
@@ -310,7 +317,7 @@ function build(meta) {
   for (const row of classInfos) {
     const slots = CLASS_SLOTS[row[1]];
     if (!slots) { console.warn(`WARN: no equipment slots known for class ${row[1]}, skipped`); continue; }
-    classes.push({ id: row[0], name: row[1], slots });
+    classes.push({ id: row[0], name: row[1], slots, img: imagePath('classes', row[1]) });
   }
 
   const slotTypes = {};

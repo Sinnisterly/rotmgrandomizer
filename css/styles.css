@@ -110,6 +110,32 @@ button, input, select { font: inherit; color: inherit; }
   gap: 16px;
 }
 .class-text, .dungeon-text { flex: 1; min-width: 0; }
+.dungeon-img { background-size: contain; background-position: center; }
+.btn-dungeon {
+  align-self: center;
+  padding: 10px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--gold-dark);
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.btn-dungeon:hover { background: #2e2a1c; }
+@media (max-width: 560px) {
+  .dungeon-card { flex-wrap: wrap; }
+  .btn-dungeon { width: 100%; }
+}
+
+/* Slot machine */
+.spinning .sprite { filter: blur(0.6px) brightness(1.15); }
+.spinning .slot-name, .spinning h2 { opacity: 0.75; }
+.spinning .icon-btn { pointer-events: none; opacity: 0.5; }
+.landed { animation: land 0.4s ease-out; }
+@keyframes land {
+  0% { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
 .class-card h2, .dungeon-card h2 {
   margin: 0;
   font-size: 30px;
