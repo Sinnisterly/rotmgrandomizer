@@ -96,12 +96,24 @@ async function discoverRealmEye() {
 
 // Runs definition.js in a sandbox and returns its globals.
 function evalDefinition(code) {
-  const sandbox = { window: {} };
+  const sandbox = { window: {}, self: {}, globalThis: {} };
   vm.createContext(sandbox);
-  vm.runInContext(code, sandbox, { timeout: 10000 });
-  const g = { ...sandbox.window, ...sandbox };
-  if (!g.items || !g.classes) throw new Error('definition.js did not define items and classes');
-  console.log('definition.js globals:', Object.keys(g).filter((k) => k !== 'window').join(', '));
+  // Top-level let/const do not become sandbox properties, so read them from
+  // inside the same script.
+  const grab = ['items', 'classes', 'skins', 'rendersVersion', 'enchantments', 'enchants']
+    .map((n) => `try { __out.${n} = ${n}; } catch (e) {}`).join('\n');
+  sandbox.__out = {};
+  vm.runInContext(`${code}\n;${grab}`, sandbox, { timeout: 10000 });
+  const g = { ...sandbox.window, ...sandbox.self, ...sandbox, ...sandbox.__out };
+  const found = Object.keys(g).filter((k) => !['window', 'self', 'globalThis', '__out'].includes(k) && g[k] !== undefined);
+  console.log('definition.js globals:', found.join(', '));
+  if (!g.items || !g.classes) {
+    console.log('--- definition.js head ---');
+    console.log(code.slice(0, 1500));
+    console.log('--- top-level assignments ---');
+    console.log([...code.matchAll(/(?:^|[;\n])\s*(?:var|let|const)?\s*([\w.$]+)\s*=\s*[{[]/g)].map((m) => m[1]).slice(0, 40).join(', '));
+    throw new Error('definition.js did not define items and classes');
+  }
   return g;
 }
 
