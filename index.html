@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RotMG Randomizer</title>
+  <meta name="description" content="Realm of the Mad God Exalt class, item and dungeon randomizer with challenge modes.">
+  <link rel="icon" href="data/img/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand">
+      <img src="data/img/assets/rotmg-randomizer-logo.png" alt="ROTMG Exalt Randomizer" width="365" height="88">
+    </h1>
+    <a class="kofi" href="https://ko-fi.com/loathed" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h14v7a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V6zm14 1h1.5a3.5 3.5 0 0 1 0 7H17v-2h1.5a1.5 1.5 0 0 0 0-3H17V7zM10 9.2c-.9-1-2.6-.6-2.6.8 0 1.2 1.5 2.2 2.6 3 1.1-.8 2.6-1.8 2.6-3 0-1.4-1.7-1.8-2.6-.8z"/></svg>
+      Support
+    </a>
+  </header>
+
+  <main class="layout">
+    <!-- Left: results -->
+    <section class="results" aria-label="Roll result">
+      <div class="panel class-card" id="classCard">
+        <div class="sprite big" id="classSprite" aria-hidden="true"></div>
+        <div class="class-text">
+          <span class="label">Class</span>
+          <h2 id="className">-</h2>
+          <p class="sub" id="classSlots"></p>
+        </div>
+        <div class="slot-actions" data-slot="class"></div>
+      </div>
+
+      <div class="slots" id="slots"></div>
+
+      <div class="roll-bar">
+        <button class="btn-roll" id="rollBtn" type="button">Randomize</button>
+        <div class="seed-row">
+          <label for="seedInput">Seed</label>
+          <input id="seedInput" type="text" spellcheck="false" autocomplete="off">
+          <button class="btn" id="seedRollBtn" type="button" title="Roll again using the seed in the box">Use seed</button>
+        </div>
+        <div class="share-row">
+          <button class="btn" id="copyLinkBtn" type="button">Copy link</button>
+          <button class="btn" id="copyTextBtn" type="button">Copy as text</button>
+          <span class="toast" id="toast" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <div class="panel rules" id="rulesPanel" hidden>
+        <h3>Active rules</h3>
+        <ul id="rulesList"></ul>
+      </div>
+
+      <div class="panel notice" id="notice" hidden></div>
+
+      <!-- Dungeon randomizer -->
+      <div class="panel dungeon-card" id="dungeonCard">
+        <div class="sprite big dungeon-img" id="dungeonImg" aria-hidden="true"></div>
+        <div class="dungeon-text">
+          <span class="label">Dungeon</span>
+          <h2 id="dungeonName">-</h2>
+          <p class="sub" id="dungeonGroup"></p>
+        </div>
+        <button class="btn btn-dungeon" id="dungeonBtn" type="button">Roll dungeon</button>
+      </div>
+
+      <details class="panel history" id="historyPanel">
+        <summary>History <span class="count" id="historyCount"></span></summary>
+        <ol id="historyList"></ol>
+        <button class="btn small" id="clearHistoryBtn" type="button">Clear history</button>
+      </details>
+    </section>
+
+    <!-- Right: settings -->
+    <aside class="settings" id="settings" aria-label="Settings">
+      <div class="settings-head">
+        <h2 class="settings-title">Settings</h2>
+        <button class="btn small settings-toggle" id="settingsToggle" type="button" aria-expanded="true" aria-controls="settingsBody">
+          <span class="when-open">Hide</span><span class="when-closed">Settings</span>
+        </button>
+      </div>
+      <div class="settings-body" id="settingsBody">
+
+      <details class="panel">
+        <summary>Display</summary>
+        <div id="displayList" class="check-list"></div>
+      </details>
+
+      <details class="panel" open>
+        <summary>Challenge modes</summary>
+        <p class="hint">Modes marked "pool" change what can roll. The others add rules to follow while you play.</p>
+        <div id="modeList" class="mode-list"></div>
+      </details>
+
+      <details class="panel" open>
+        <summary>Item types</summary>
+        <p class="hint">Weight is how often each type is picked. 0 turns it off.</p>
+        <div id="weightList" class="weights"></div>
+        <div class="check-list" id="includeList"></div>
+      </details>
+
+      <details class="panel">
+        <summary>Enchantments</summary>
+        <div id="enchantList" class="check-list"></div>
+      </details>
+
+      <details class="panel">
+        <summary>ST sets</summary>
+        <p class="hint">Chance that a roll gives a full ST set for the class instead of single items. Needs ST items turned on.</p>
+        <div class="range-row">
+          <input type="range" id="setChance" min="0" max="100" step="5">
+          <output id="setChanceOut"></output>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>Tier limits</summary>
+        <p class="hint">Only affects tiered items.</p>
+        <div id="tierList" class="tier-list"></div>
+      </details>
+
+      <details class="panel">
+        <summary>Classes</summary>
+        <div class="row-btns">
+          <button class="btn small" type="button" id="classesAll">All</button>
+          <button class="btn small" type="button" id="classesNone">None</button>
+        </div>
+        <div id="classList" class="check-list cols"></div>
+      </details>
+
+      <details class="panel">
+        <summary>Dungeons</summary>
+        <label class="check"><input type="checkbox" id="dungeonOn"> Roll a dungeon</label>
+        <h4 class="sub-head">Difficulty</h4>
+        <p class="hint">Uses RealmEye's difficulty ratings.</p>
+        <div id="dungeonGroupList" class="check-list"></div>
+        <h4 class="sub-head">Dungeon types</h4>
+        <div id="dungeonSectionList" class="check-list"></div>
+      </details>
+
+      <button class="btn small" type="button" id="resetBtn">Reset all settings</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <p class="credit">Made by <a href="https://github.com/Sinnisterly" target="_blank" rel="noopener">Loathe</a></p>
+    <p class="credit discord">
+      <svg viewBox="0 0 24 24" aria-label="Discord" role="img"><path fill="currentColor" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+      <span>@Sinnisterly</span>
+    </p>
+    <p>Images and data pulled from <a href="https://www.realmeye.com" target="_blank" rel="noopener">RealmEye</a>.</p>
+    <p class="data-info" id="dataInfo"></p>
+    <p class="legal">Fan made. Not affiliated with DECA Games. Realm of the Mad God is a trademark of DECA Games.</p>
+  </footer>
+
+  <script src="data/items.js"></script>
+  <script src="data/enchants.js"></script>
+  <script src="data/dungeons.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
