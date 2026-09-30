@@ -18,6 +18,11 @@ const PAGES = [
   'enchantments', 'enchanting', 'dungeons',
   'swords', 'daggers', 'bows', 'staves', 'wands', 'katanas',
   'sigils', 'maces', 'sheaths', 'lutes',
+  'weapons', 'ability-items', 'armor', 'rings',
+  'tomes', 'shields', 'spells', 'seals', 'cloaks', 'quivers', 'helms', 'poisons',
+  'skulls', 'traps', 'orbs', 'prisms', 'scepters', 'stars', 'shurikens', 'wakizashi',
+  'wakizashis', 'leather-armors', 'leather-armor', 'robes', 'heavy-armors', 'heavy-armor',
+  'untiered-rings', 'tiered-rings', 'set-tiered-rings',
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
