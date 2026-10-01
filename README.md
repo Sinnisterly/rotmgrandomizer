@@ -11,7 +11,7 @@ A randomizer for Realm of the Mad God Exalt. Roll a random class with gear it ca
 | Randomizer | A random class plus a weapon, ability, armor and ring that class can use. |
 | Wheel | Spin for a dungeon, a dungeon difficulty, a class, a challenge, a curse or your own list. |
 | Challenges | Turn on challenge modes like PPE, UPE or TPE, and add your own house rules. |
-| Run | Run timer, counters for deaths, dungeons and white bags, active curses and a log. |
+| Run | Run timer, counters for deaths, dungeons, white bags and set bags, active curses and a log. |
 | Bingo | A bingo card of RotMG goals. Share the link and friends get the same card. |
 | Stream | OBS overlay, Twitch chat commands and votes, and hotkeys. |
 

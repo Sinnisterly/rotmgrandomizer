@@ -129,6 +129,7 @@
       case 'timer': R.run.toggleTimer(); return true;
       case 'death': R.run.add('death'); return true;
       case 'whiteBag': R.run.add('white'); return true;
+      case 'setBag': R.run.add('set'); return true;
       case 'mute': R.main.toggleMute(); return true;
       default:
         if (id.startsWith('reroll')) {

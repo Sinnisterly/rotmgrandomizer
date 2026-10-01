@@ -185,6 +185,7 @@
     { id: 'timer', name: 'Start or pause the run timer', key: 't' },
     { id: 'death', name: 'Add a death', key: 'd' },
     { id: 'whiteBag', name: 'Add a white bag', key: 'w' },
+    { id: 'setBag', name: 'Add a set bag', key: 'b' },
     { id: 'mute', name: 'Sound on or off', key: 'm' },
     { id: 'reroll1', name: 'Reroll class', key: '1' },
     { id: 'reroll2', name: 'Reroll weapon', key: '2' },

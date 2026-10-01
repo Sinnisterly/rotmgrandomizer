@@ -14,7 +14,7 @@
     { id: 'deaths', name: 'Deaths', value: 0, kind: 'death' },
     { id: 'dungeons', name: 'Dungeons cleared', value: 0, kind: 'plain' },
     { id: 'whitebags', name: 'White bags', value: 0, kind: 'white' },
-    { id: 'setbags', name: 'Set bags', value: 0, kind: 'plain' },
+    { id: 'setbags', name: 'Set bags', value: 0, kind: 'set' },
   ];
 
   const saved = R.store.get(R.KEYS.run, null) || {};
@@ -23,7 +23,19 @@
     counters: saved.counters || DEFAULT_COUNTERS.map((c) => ({ ...c })),
     log: saved.log || [],
     curses: saved.curses || [],
+    // Default counters this browser has been given. Saves from before this
+    // list existed had the first three.
+    defaults: saved.defaults || (saved.counters ? ['deaths', 'dungeons', 'whitebags'] : DEFAULT_COUNTERS.map((c) => c.id)),
   };
+
+  // New default counters are added to saved runs once. A counter removed on
+  // purpose stays removed.
+  const fresh = DEFAULT_COUNTERS.filter((c) => !data.defaults.includes(c.id));
+  if (fresh.length) {
+    for (const c of fresh) if (!data.counters.some((x) => x.id === c.id)) data.counters.push({ ...c });
+    data.defaults = DEFAULT_COUNTERS.map((c) => c.id);
+    if (!R.follower) R.store.set(R.KEYS.run, data);
+  }
 
   function save() {
     if (!R.follower) R.store.set(R.KEYS.run, data);
@@ -86,6 +98,11 @@
       R.fx.shake(2);
       R.fx.flash('#a01c1c');
       R.fx.burstAt(node, { colors: ['#a01c1c', '#e05a4f', '#3a0d0d'], count: 30, power: 5 });
+    } else if (c.kind === 'set') {
+      R.sound.play('bag-orange');
+      R.fx.flash('#f08a1c');
+      R.fx.shake(1);
+      R.fx.burstAt(node, { colors: ['#f08a1c', '#ffc078', '#ffffff'], count: 40, power: 6 });
     } else if (c.kind === 'white') {
       R.sound.play('bag-white');
       R.fx.flash('#ffffff');
@@ -127,6 +144,7 @@
         el('option', { value: 'plain', text: 'Plain' }),
         el('option', { value: 'death', text: 'Death' }),
         el('option', { value: 'white', text: 'White bag' }),
+        el('option', { value: 'set', text: 'Set bag' }),
       ]);
       kind.value = c.kind;
       kind.addEventListener('change', () => { c.kind = kind.value; save(); renderCounters(); });
