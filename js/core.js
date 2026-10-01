@@ -203,21 +203,21 @@
       // Roll pool
       modes: {},
       houseRules: [],
-      weights: { t: 50, ut: 35, st: 15 },
+      weights: { t: 50, ut: 45, st: 25 },
       include: Object.fromEntries(R.FLAGS.map((f) => [f.id, true])),
-      enchants: { on: false, count: 1, unique: false },
+      enchants: { on: true, count: 4, unique: false },
       setChance: 0,
       tiers,
       classesOff: [],
       noRepeat: { classes: false, items: false },
       // Randomizer extras
-      reveal: { on: false, style: 'bag', autoOpen: true, hideClass: true },
+      reveal: { on: true, style: 'bag', autoOpen: false, hideClass: true },
       tokens: { on: false, count: 3 },
       dungeonOn: true,
       // Dungeon filters, shared by the wheel and bingo
       dungeonGroups: R.DUNGEONS.groups.map((g) => g.id),
       dungeonSections: R.DUNGEONS.sections.filter((x) => x.on).map((x) => x.id),
-      wheel: { preset: 'dungeons', style: 'auto', duration: 5, images: true, popup: true },
+      wheel: { preset: 'dungeons', style: 'auto', duration: 10, images: true, popup: true },
       run: { deathCurse: false, logEvents: true },
       bingo: { size: 5, free: true, level: 'normal', dungeons: true, goals: true },
       // Effects and sound
