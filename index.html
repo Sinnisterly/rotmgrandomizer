@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RotMG Randomizer</title>
-  <meta name="description" content="Realm of the Mad God Exalt class, item and dungeon randomizer with challenge modes.">
+  <meta name="description" content="Realm of the Mad God Exalt class, item and dungeon randomizer with a wheel, challenge modes, bingo, a run tracker and stream tools.">
   <link rel="icon" href="data/img/assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -13,67 +13,209 @@
     <h1 class="brand">
       <img src="data/img/assets/rotmg-randomizer-logo.png" alt="ROTMG Exalt Randomizer" width="365" height="88">
     </h1>
-    <a class="kofi" href="https://ko-fi.com/loathed" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h14v7a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V6zm14 1h1.5a3.5 3.5 0 0 1 0 7H17v-2h1.5a1.5 1.5 0 0 0 0-3H17V7zM10 9.2c-.9-1-2.6-.6-2.6.8 0 1.2 1.5 2.2 2.6 3 1.1-.8 2.6-1.8 2.6-3 0-1.4-1.7-1.8-2.6-.8z"/></svg>
-      Support
-    </a>
+    <div class="top-actions">
+      <button class="btn small top-btn" id="muteBtn" type="button" title="Sound on or off (M)"></button>
+      <a class="kofi" href="https://ko-fi.com/loathed" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h14v7a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V6zm14 1h1.5a3.5 3.5 0 0 1 0 7H17v-2h1.5a1.5 1.5 0 0 0 0-3H17V7zM10 9.2c-.9-1-2.6-.6-2.6.8 0 1.2 1.5 2.2 2.6 3 1.1-.8 2.6-1.8 2.6-3 0-1.4-1.7-1.8-2.6-.8z"/></svg>
+        Support
+      </a>
+    </div>
   </header>
 
-  <main class="layout">
-    <!-- Left: results -->
-    <section class="results" aria-label="Roll result">
-      <div class="panel class-card" id="classCard">
-        <div class="sprite big" id="classSprite" aria-hidden="true"></div>
-        <div class="class-text">
-          <span class="label">Class</span>
-          <h2 id="className">-</h2>
-          <p class="sub" id="classSlots"></p>
+  <nav class="tabbar" id="tabbar" role="tablist" aria-label="Features"></nav>
+
+  <main class="layout" id="layout">
+    <div class="tab-area">
+
+      <!-- Randomizer -->
+      <section class="tab-panel" id="tab-randomizer" role="tabpanel" aria-label="Randomizer">
+        <div class="panel vote-panel" id="votePanel" hidden></div>
+
+        <div class="panel class-card" id="classCard">
+          <div class="sprite big" id="classSprite" aria-hidden="true"></div>
+          <div class="class-text">
+            <span class="label">Class</span>
+            <h2 id="className">-</h2>
+            <p class="sub" id="classSlots"></p>
+          </div>
+          <div class="slot-actions ctrl" data-slot="class"></div>
         </div>
-        <div class="slot-actions" data-slot="class"></div>
-      </div>
 
-      <div class="slots" id="slots"></div>
+        <div class="slots" id="slots"></div>
 
-      <div class="roll-bar">
-        <button class="btn-roll" id="rollBtn" type="button">Randomize</button>
-        <div class="seed-row">
-          <label for="seedInput">Seed</label>
-          <input id="seedInput" type="text" spellcheck="false" autocomplete="off">
-          <button class="btn" id="seedRollBtn" type="button" title="Roll again using the seed in the box">Use seed</button>
+        <div class="panel dungeon-strip" id="dungeonStrip">
+          <div class="sprite small dungeon-img" id="dungeonImg" aria-hidden="true"></div>
+          <div class="dungeon-text">
+            <span class="label">Dungeon</span>
+            <p class="dungeon-name" id="dungeonName">-</p>
+          </div>
+          <button class="btn ctrl" id="dungeonSpinBtn" type="button">Spin dungeon</button>
         </div>
-        <div class="share-row">
-          <button class="btn" id="copyLinkBtn" type="button">Copy link</button>
-          <button class="btn" id="copyTextBtn" type="button">Copy as text</button>
-          <span class="toast" id="toast" role="status" aria-live="polite"></span>
+
+        <div class="roll-bar ctrl">
+          <div class="roll-row">
+            <button class="btn-roll" id="rollBtn" type="button">Randomize</button>
+            <button class="btn btn-reveal" id="revealAllBtn" type="button" hidden>Reveal all</button>
+          </div>
+          <div class="roll-info">
+            <span class="tokens" id="tokenInfo" hidden></span>
+            <span class="odds" id="oddsInfo"></span>
+            <span class="daily-tag" id="dailyTag" hidden></span>
+          </div>
+          <div class="seed-row">
+            <label for="seedInput">Seed</label>
+            <input id="seedInput" type="text" spellcheck="false" autocomplete="off">
+            <button class="btn" id="seedRollBtn" type="button" title="Roll again using the seed in the box">Use seed</button>
+            <button class="btn" id="dailyBtn" type="button" title="Everyone gets the same roll today">Daily roll</button>
+          </div>
+          <div class="share-row">
+            <button class="btn" id="copyLinkBtn" type="button">Copy link</button>
+            <button class="btn" id="copyTextBtn" type="button">Copy as text</button>
+            <button class="btn" id="copyImageBtn" type="button">Copy image</button>
+            <span class="toast" id="toast" role="status" aria-live="polite"></span>
+          </div>
         </div>
-      </div>
 
-      <div class="panel rules" id="rulesPanel" hidden>
-        <h3>Active rules</h3>
-        <ul id="rulesList"></ul>
-      </div>
+        <div class="panel notice" id="notice" hidden></div>
 
-      <div class="panel notice" id="notice" hidden></div>
+        <details class="panel fold rules" id="rulesPanel" data-fold="rules" hidden>
+          <summary>Active rules <span class="count" id="rulesCount"></span></summary>
+          <ul id="rulesList"></ul>
+        </details>
 
-      <!-- Dungeon randomizer -->
-      <div class="panel dungeon-card" id="dungeonCard">
-        <div class="sprite big dungeon-img" id="dungeonImg" aria-hidden="true"></div>
-        <div class="dungeon-text">
-          <span class="label">Dungeon</span>
-          <h2 id="dungeonName">-</h2>
-          <p class="sub" id="dungeonGroup"></p>
+        <details class="panel fold history ctrl" id="historyPanel" data-fold="history">
+          <summary>History <span class="count" id="historyCount"></span></summary>
+          <ol id="historyList"></ol>
+          <button class="btn small" id="clearHistoryBtn" type="button">Clear history</button>
+        </details>
+      </section>
+
+      <!-- Wheel -->
+      <section class="tab-panel" id="tab-wheel" role="tabpanel" aria-label="Wheel" hidden>
+        <div class="panel wheel-head ctrl">
+          <label class="field">
+            <span class="label">Wheel</span>
+            <select id="wheelPreset"></select>
+          </label>
+          <label class="check inline"><input type="checkbox" id="wheelElim"> <span>Remove rolled options</span></label>
+          <span class="wheel-left" id="wheelLeft"></span>
         </div>
-        <button class="btn btn-dungeon" id="dungeonBtn" type="button">Roll dungeon</button>
-      </div>
+        <div class="wheel-filter ctrl" id="wheelFilter" hidden></div>
+        <div class="panel wheel-stage" id="wheelStage">
+          <div class="wheel-box" id="wheelBox">
+            <canvas id="wheelCanvas" width="520" height="520" aria-hidden="true"></canvas>
+            <div class="wheel-pointer" aria-hidden="true"></div>
+            <button class="wheel-hub ctrl" id="wheelHub" type="button" aria-label="Spin">Spin</button>
+          </div>
+          <div class="reel-box" id="reelBox" hidden>
+            <div class="reel-marker" aria-hidden="true"></div>
+            <div class="reel-track" id="reelTrack"></div>
+          </div>
+          <div class="wheel-empty" id="wheelEmpty" hidden></div>
+          <p class="wheel-result" id="wheelResult" aria-live="polite"></p>
+        </div>
+        <div class="roll-bar ctrl">
+          <button class="btn-roll" id="spinBtn" type="button">Spin</button>
+        </div>
+        <details class="panel fold ctrl" id="wheelRemovedPanel" data-fold="wheelRemoved">
+          <summary>Rolled <span class="count" id="wheelRemovedCount"></span></summary>
+          <p class="hint">Click an option to put it back on the wheel.</p>
+          <div class="chips" id="wheelRemoved"></div>
+          <button class="btn small" id="wheelRestoreAll" type="button">Put all back</button>
+        </details>
+        <details class="panel fold ctrl" id="wheelEditPanel" data-fold="wheelEdit">
+          <summary>Edit options</summary>
+          <div id="wheelEdit"></div>
+        </details>
+      </section>
 
-      <details class="panel history" id="historyPanel">
-        <summary>History <span class="count" id="historyCount"></span></summary>
-        <ol id="historyList"></ol>
-        <button class="btn small" id="clearHistoryBtn" type="button">Clear history</button>
-      </details>
-    </section>
+      <!-- Challenges -->
+      <section class="tab-panel" id="tab-challenges" role="tabpanel" aria-label="Challenges" hidden>
+        <div class="panel challenge-head">
+          <div>
+            <h2 class="tab-title">Challenges</h2>
+            <p class="hint">Pool modes change what the Randomizer can roll. Play rules are rules you follow in game.</p>
+          </div>
+          <div class="row-btns ctrl">
+            <button class="btn" id="spinModeBtn" type="button">Spin a challenge</button>
+            <button class="btn" id="modesOffBtn" type="button">Turn all off</button>
+          </div>
+        </div>
+        <div class="active-strip" id="activeStrip"></div>
+        <details class="panel fold" data-fold="poolModes" open>
+          <summary>Pool modes</summary>
+          <div class="mode-grid" id="poolModes"></div>
+        </details>
+        <details class="panel fold" data-fold="playModes" open>
+          <summary>Play rules</summary>
+          <div class="mode-grid" id="playModes"></div>
+        </details>
+        <details class="panel fold" data-fold="houseRules" open>
+          <summary>House rules</summary>
+          <p class="hint">Your own rules. One per line. They show under Active rules.</p>
+          <textarea id="houseRules" rows="4" spellcheck="false" placeholder="No guild dungeons&#10;Only drink potions in the nexus"></textarea>
+        </details>
+      </section>
 
-    <!-- Right: settings -->
+      <!-- Run tracker -->
+      <section class="tab-panel" id="tab-run" role="tabpanel" aria-label="Run tracker" hidden>
+        <div class="panel timer-card">
+          <span class="label">Run time</span>
+          <div class="timer" id="runTimer">0:00:00</div>
+          <div class="row-btns ctrl">
+            <button class="btn" id="timerBtn" type="button">Start</button>
+            <button class="btn" id="timerReset" type="button">Reset</button>
+          </div>
+        </div>
+        <div class="counters" id="counters"></div>
+        <div class="row-btns ctrl">
+          <button class="btn" id="addCounter" type="button">Add counter</button>
+          <button class="btn" id="resetCounters" type="button">Reset counters</button>
+        </div>
+        <details class="panel fold ctrl" data-fold="runLog" open>
+          <summary>Log <span class="count" id="runLogCount"></span></summary>
+          <ol class="run-log" id="runLog"></ol>
+          <button class="btn small" id="clearRunLog" type="button">Clear log</button>
+        </details>
+      </section>
+
+      <!-- Bingo -->
+      <section class="tab-panel" id="tab-bingo" role="tabpanel" aria-label="Bingo" hidden>
+        <div class="panel bingo-head ctrl">
+          <div class="seed-row">
+            <label for="bingoSeed">Card seed</label>
+            <input id="bingoSeed" type="text" spellcheck="false" autocomplete="off">
+            <button class="btn" id="bingoUseSeed" type="button">Use seed</button>
+            <button class="btn" id="bingoNew" type="button">New card</button>
+          </div>
+          <div class="share-row">
+            <button class="btn" id="bingoCopy" type="button">Copy card link</button>
+            <button class="btn" id="bingoClear" type="button">Clear marks</button>
+            <span class="bingo-lines" id="bingoLines"></span>
+          </div>
+          <p class="hint">Share the link so friends get the same card. Click a square when you finish it.</p>
+        </div>
+        <div class="bingo-grid" id="bingoGrid"></div>
+      </section>
+
+      <!-- Stream -->
+      <section class="tab-panel" id="tab-stream" role="tabpanel" aria-label="Stream tools" hidden>
+        <details class="panel fold" data-fold="overlay" open>
+          <summary>Overlay</summary>
+          <div id="overlayTools"></div>
+        </details>
+        <details class="panel fold" data-fold="twitch" open>
+          <summary>Twitch chat</summary>
+          <div id="twitchTools"></div>
+        </details>
+        <details class="panel fold" data-fold="hotkeyRef">
+          <summary>Hotkeys</summary>
+          <div id="hotkeyRef"></div>
+        </details>
+      </section>
+    </div>
+
+    <!-- Settings -->
     <aside class="settings" id="settings" aria-label="Settings">
       <div class="settings-head">
         <h2 class="settings-title">Settings</h2>
@@ -82,65 +224,9 @@
         </button>
       </div>
       <div class="settings-body" id="settingsBody">
-
-      <details class="panel">
-        <summary>Display</summary>
-        <div id="displayList" class="check-list"></div>
-      </details>
-
-      <details class="panel" open>
-        <summary>Challenge modes</summary>
-        <p class="hint">Modes marked "pool" change what can roll. The others add rules to follow while you play.</p>
-        <div id="modeList" class="mode-list"></div>
-      </details>
-
-      <details class="panel" open>
-        <summary>Item types</summary>
-        <p class="hint">Weight is how often each type is picked. 0 turns it off.</p>
-        <div id="weightList" class="weights"></div>
-        <div class="check-list" id="includeList"></div>
-      </details>
-
-      <details class="panel">
-        <summary>Enchantments</summary>
-        <div id="enchantList" class="check-list"></div>
-      </details>
-
-      <details class="panel">
-        <summary>ST sets</summary>
-        <p class="hint">Chance that a roll gives a full ST set for the class instead of single items. Needs ST items turned on.</p>
-        <div class="range-row">
-          <input type="range" id="setChance" min="0" max="100" step="5">
-          <output id="setChanceOut"></output>
-        </div>
-      </details>
-
-      <details class="panel">
-        <summary>Tier limits</summary>
-        <p class="hint">Only affects tiered items.</p>
-        <div id="tierList" class="tier-list"></div>
-      </details>
-
-      <details class="panel">
-        <summary>Classes</summary>
-        <div class="row-btns">
-          <button class="btn small" type="button" id="classesAll">All</button>
-          <button class="btn small" type="button" id="classesNone">None</button>
-        </div>
-        <div id="classList" class="check-list cols"></div>
-      </details>
-
-      <details class="panel">
-        <summary>Dungeons</summary>
-        <label class="check"><input type="checkbox" id="dungeonOn"> Roll a dungeon</label>
-        <h4 class="sub-head">Difficulty</h4>
-        <p class="hint">Uses RealmEye's difficulty ratings.</p>
-        <div id="dungeonGroupList" class="check-list"></div>
-        <h4 class="sub-head">Dungeon types</h4>
-        <div id="dungeonSectionList" class="check-list"></div>
-      </details>
-
-      <button class="btn small" type="button" id="resetBtn">Reset all settings</button>
+        <div id="settingsTab" class="settings-group"></div>
+        <h3 class="settings-sub">General</h3>
+        <div id="settingsGeneral" class="settings-group"></div>
       </div>
     </aside>
   </main>
@@ -156,9 +242,22 @@
     <p class="legal">Fan made. Not affiliated with DECA Games. Realm of the Mad God is a trademark of DECA Games.</p>
   </footer>
 
+  <canvas class="fx-canvas" id="fxCanvas" aria-hidden="true"></canvas>
+  <div class="fx-flash" id="fxFlash" aria-hidden="true"></div>
+
   <script src="data/items.js"></script>
   <script src="data/enchants.js"></script>
   <script src="data/dungeons.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/randomizer.js"></script>
+  <script src="js/wheel.js"></script>
+  <script src="js/challenges.js"></script>
+  <script src="js/run.js"></script>
+  <script src="js/bingo.js"></script>
+  <script src="js/twitch.js"></script>
+  <script src="js/stream.js"></script>
+  <script src="js/settings-ui.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
