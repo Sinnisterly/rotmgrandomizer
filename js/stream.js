@@ -246,7 +246,7 @@
       ]),
       el('div', { class: 'tool-card' }, [
         el('h4', { class: 'sub-head', text: 'OBS browser source' }),
-        el('p', { class: 'hint', text: 'Add this link as a Browser Source. It keeps a copy of your current settings, so copy it again after you change them. Control it with Twitch commands, or right click the source in OBS and pick Interact.' }),
+        el('p', { class: 'hint', text: 'Add this link as a Browser Source. OBS runs its own browser, so this does not copy what you do on this page. It is a separate copy you control with Twitch commands, or by right clicking the source in OBS and picking Interact. It keeps your current settings, so copy it again after you change them. To show exactly what you do here, use the pop-out window.' }),
         el('button', {
           type: 'button', class: 'btn', text: 'Copy OBS link',
           onclick: () => R.copy(overlayUrl({ sound: '1', cfg: R.packSettings() }), 'OBS link copied'),

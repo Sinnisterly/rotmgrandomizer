@@ -139,6 +139,7 @@
     const r = size / 2 - 14;
     const css = getComputedStyle(document.documentElement);
     const accent = css.getPropertyValue('--gold').trim() || '#e0b43c';
+    const headFont = css.getPropertyValue('--head').trim() || 'system-ui, sans-serif';
 
     // Rim
     g.fillStyle = '#100e0b';
@@ -187,7 +188,7 @@
       }
       g.textAlign = 'right';
       g.textBaseline = 'middle';
-      g.font = `600 ${font}px "Pixelify Sans", system-ui, sans-serif`;
+      g.font = `600 ${font}px ${headFont}`;
       let label = items[i].label;
       const maxW = textEnd - r * 0.2;
       while (g.measureText(label).width > maxW && label.length > 3) label = label.slice(0, -2);
@@ -613,10 +614,10 @@
       return {
         label: `Spin ${result.label} dungeons`,
         run: () => {
-          applyPendingRemove();
+          setPreset('dungeons');
           data.group = result.id;
           save();
-          setPreset('dungeons');
+          render();
           setTimeout(spin, 120);
         },
       };
@@ -624,8 +625,11 @@
     return null;
   }
 
+  // Picking a list clears the one time difficulty filter.
   function setPreset(id) {
     applyPendingRemove();
+    data.group = null;
+    save();
     R.settings.wheel.preset = id;
     R.saveSettings();
     rot = 0;
@@ -635,10 +639,16 @@
   }
 
   // Switches to the wheel tab with a list and spins it.
+  // Spinning dungeons from here always uses the full list from the filters.
   function spinPreset(id) {
     if (R.follower) return;
     R.main.showTab('wheel');
     if (id && id !== R.settings.wheel.preset) setPreset(id);
+    else if (id === 'dungeons' && data.group) {
+      data.group = null;
+      save();
+      render();
+    }
     setTimeout(spin, 150);
   }
 

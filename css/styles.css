@@ -56,6 +56,13 @@
   --notch: polygon(0 var(--px), var(--px) var(--px), var(--px) 0, calc(100% - var(--px)) 0, calc(100% - var(--px)) var(--px), 100% var(--px), 100% calc(100% - var(--px)), calc(100% - var(--px)) calc(100% - var(--px)), calc(100% - var(--px)) 100%, var(--px) 100%, var(--px) calc(100% - var(--px)), 0 calc(100% - var(--px)));
 }
 
+/* Font choice for readability. */
+[data-font="titles"] { --tiny: var(--body); }
+[data-font="plain"] { --head: var(--body); --tiny: var(--body); }
+[data-font="titles"] .label, [data-font="plain"] .label,
+[data-font="titles"] .sub-head, [data-font="plain"] .sub-head,
+[data-font="titles"] .badge, [data-font="plain"] .badge { font-weight: 700; }
+
 [data-theme="nexus"] {
   --bg: #0a0d13;
   --panel: #131922;

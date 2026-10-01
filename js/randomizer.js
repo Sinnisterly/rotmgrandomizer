@@ -968,7 +968,7 @@
     g.imageSmoothingEnabled = false;
     const css = getComputedStyle(document.documentElement);
     const accent = css.getPropertyValue('--gold').trim() || '#e0b43c';
-    const head = '"Pixelify Sans", system-ui, sans-serif';
+    const head = css.getPropertyValue('--head').trim() || 'system-ui, sans-serif';
     const body = 'system-ui, sans-serif';
 
     g.fillStyle = '#0f0d0b';

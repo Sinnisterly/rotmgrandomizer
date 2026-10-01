@@ -223,7 +223,7 @@
       // Effects and sound
       fx: { animate: true, speed: 'normal', particles: true, amount: 'normal', shake: true, glow: true, flash: true },
       sound: { on: true, volume: 50, style: 'retro', ui: true, spin: true, reveal: true, fanfare: true, events: true },
-      look: { theme: 'dungeon', accent: '#e0b43c', scale: 100 },
+      look: { theme: 'dungeon', font: 'pixel', accent: '#e0b43c', scale: 100 },
       keys: Object.fromEntries(R.HOTKEYS.map((h) => [h.id, h.key])),
       twitch: { channel: '', autoConnect: false, who: 'mods', prefix: '!', voteTime: 30,
         commands: { roll: true, reveal: true, spin: true, vote: true, death: true } },
