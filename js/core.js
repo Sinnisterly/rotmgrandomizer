@@ -176,22 +176,26 @@
 
   // ---------- Settings ----------
 
+  // Hotkeys start unset. Common keys like WASD are used in game, so each
+  // player picks their own. tabs: where the action is used.
   R.HOTKEYS = [
-    { id: 'main', name: 'Main action of the tab', key: ' ' },
-    { id: 'roll', name: 'Randomize', key: 'r' },
-    { id: 'revealNext', name: 'Reveal next', key: 'n' },
-    { id: 'revealAll', name: 'Reveal all', key: 'a' },
-    { id: 'spin', name: 'Spin the wheel', key: 's' },
-    { id: 'timer', name: 'Start or pause the run timer', key: 't' },
-    { id: 'death', name: 'Add a death', key: 'd' },
-    { id: 'whiteBag', name: 'Add a white bag', key: 'w' },
-    { id: 'mute', name: 'Sound on or off', key: 'm' },
-    { id: 'reroll1', name: 'Reroll class', key: '1' },
-    { id: 'reroll2', name: 'Reroll weapon', key: '2' },
-    { id: 'reroll3', name: 'Reroll ability', key: '3' },
-    { id: 'reroll4', name: 'Reroll armor', key: '4' },
-    { id: 'reroll5', name: 'Reroll ring', key: '5' },
+    { id: 'main', name: 'Main action of the tab', tabs: ['randomizer', 'wheel', 'run'] },
+    { id: 'roll', name: 'Randomize', tabs: ['randomizer'] },
+    { id: 'revealNext', name: 'Reveal next', tabs: ['randomizer'] },
+    { id: 'revealAll', name: 'Reveal all', tabs: ['randomizer'] },
+    { id: 'reroll1', name: 'Reroll class', tabs: ['randomizer'] },
+    { id: 'reroll2', name: 'Reroll weapon', tabs: ['randomizer'] },
+    { id: 'reroll3', name: 'Reroll ability', tabs: ['randomizer'] },
+    { id: 'reroll4', name: 'Reroll armor', tabs: ['randomizer'] },
+    { id: 'reroll5', name: 'Reroll ring', tabs: ['randomizer'] },
+    { id: 'spin', name: 'Spin the wheel', tabs: ['wheel'] },
+    { id: 'timer', name: 'Start or pause the run timer', tabs: ['run'] },
+    { id: 'death', name: 'Add a death', tabs: ['run'] },
+    { id: 'whiteBag', name: 'Add a white bag', tabs: ['run'] },
+    { id: 'setBag', name: 'Add a set bag', tabs: ['run'] },
+    { id: 'mute', name: 'Sound on or off', tabs: [] },
   ];
+  R.KEYS_VERSION = 2;
 
   R.defaultSettings = function () {
     const tiers = {};
@@ -223,8 +227,9 @@
       // Effects and sound
       fx: { animate: true, speed: 'normal', particles: true, amount: 'normal', shake: true, glow: true, flash: true },
       sound: { on: true, volume: 50, style: 'retro', ui: true, spin: true, reveal: true, fanfare: true, events: true },
-      look: { theme: 'dungeon', accent: '#e0b43c', scale: 100 },
-      keys: Object.fromEntries(R.HOTKEYS.map((h) => [h.id, h.key])),
+      look: { theme: 'dungeon', font: 'pixel', accent: '#e0b43c', scale: 100 },
+      keys: Object.fromEntries(R.HOTKEYS.map((h) => [h.id, ''])),
+      keysVersion: R.KEYS_VERSION,
       twitch: { channel: '', autoConnect: false, who: 'mods', prefix: '!', voteTime: 30,
         commands: { roll: true, reveal: true, spin: true, vote: true, death: true } },
       stream: { view: 'follow', bg: 'transparent', scale: 100 },
@@ -250,6 +255,11 @@
     // Older saves kept the animation toggle at the top level.
     if (typeof saved.animate === 'boolean' && !saved.fx) saved.fx = { animate: saved.animate };
     delete saved.animate;
+    // Saves from before hotkeys started off had letter keys set. Clear them once.
+    if (saved.keysVersion !== R.KEYS_VERSION) {
+      delete saved.keys;
+      saved.keysVersion = R.KEYS_VERSION;
+    }
     return mergeDefaults(base, saved);
   };
 

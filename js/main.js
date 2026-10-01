@@ -58,6 +58,11 @@
 
   function showTab(id) {
     if (!TABS.some((t) => t.id === id)) id = 'randomizer';
+    // The Stream tab is all controls, so an overlay would be blank on it.
+    if (R.overlay && id === 'stream') {
+      if (built) return;
+      id = 'randomizer';
+    }
     // An overlay locked to one view never changes tab.
     if (R.overlay && R.overlay.view !== 'follow' && R.stream.overlayTab(R.overlay.view) !== id) return;
     const changed = R.settings.tab !== id;
@@ -86,6 +91,7 @@
     const lk = R.settings.look;
     const root = document.documentElement;
     root.dataset.theme = lk.theme;
+    root.dataset.font = lk.font;
     root.style.setProperty('--gold', lk.accent);
     root.style.setProperty('--scale', String(lk.scale / 100));
     document.body.classList.toggle('no-glow', !R.settings.fx.glow);
@@ -140,7 +146,22 @@
     $('dataInfo').textContent = `${R.CLASSES.length} classes, ${R.ITEMS.length} items, ${R.SETS.length} ST sets, ${R.DUNGEONS.dungeons.length} dungeons. Data from ${m.source}, ${date}`;
   }
 
-  R.main = { showTab, applyLook, renderMute, toggleMute };
+  // Opens a settings section and scrolls to it.
+  function openSetting(id) {
+    if (R.settings.sidebarHidden) {
+      R.settings.sidebarHidden = false;
+      applySidebar();
+      R.saveSettings();
+    }
+    const d = $('sec-' + id);
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({ behavior: R.fx.motion() ? 'smooth' : 'auto', block: 'start' });
+    const first = d.querySelector('button, input, select');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  R.main = { showTab, applyLook, renderMute, toggleMute, openSetting };
 
   // ---------- Start ----------
 

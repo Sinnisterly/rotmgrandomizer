@@ -12,7 +12,7 @@
   // Collapsible section. Remembers if it was open.
   function section(id, title, build, opts = {}) {
     const open = R.settings.open[id];
-    const d = el('details', { class: 'panel fold' });
+    const d = el('details', { class: 'panel fold', id: 'sec-' + id });
     d.open = open === undefined ? !!opts.open : open;
     const body = el('div', { class: 'fold-body' });
     d.append(el('summary', { text: title }), body);
@@ -235,6 +235,7 @@
   // ---------- General ----------
 
   const THEMES = [['dungeon', 'Dungeon'], ['nexus', 'Nexus'], ['void', 'Void']];
+  const FONTS = [['pixel', 'Pixel'], ['titles', 'Pixel titles only'], ['plain', 'Plain (easiest to read)']];
   const ACCENTS = ['#e0b43c', '#b98cff', '#ff9d3b', '#2fc4d6', '#e05a4f', '#6fcf5a', '#f4f4f4'];
 
   function generalSections(add) {
@@ -282,6 +283,7 @@
     add(section('look', 'Look', (b) => {
       const lk = s().look;
       b.appendChild(R.select('Theme', lk.theme, THEMES, (v) => { lk.theme = v; save(); R.main.applyLook(); }));
+      b.appendChild(R.select('Font', lk.font, FONTS, (v) => { lk.font = v; save(); R.main.applyLook(); R.wheel.render(); }));
       b.appendChild(el('span', { class: 'field-name', text: 'Accent color' }));
       const sw = el('div', { class: 'swatches' });
       for (const c of ACCENTS) {
@@ -295,7 +297,7 @@
       pick.addEventListener('input', () => { lk.accent = pick.value; save(); R.main.applyLook(); });
       sw.appendChild(pick);
       b.appendChild(sw);
-      b.appendChild(R.range('Text size', lk.scale, 85, 130, 5, (v) => { lk.scale = v; save(); R.main.applyLook(); }, { fmt: (v) => v + '%' }));
+      b.appendChild(R.range('Text size', lk.scale, 85, 150, 5, (v) => { lk.scale = v; save(); R.main.applyLook(); }, { fmt: (v) => v + '%' }));
     }));
 
     add(section('hotkeys', 'Hotkeys', (b) => R.stream.hotkeyEditor(b)));
