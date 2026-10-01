@@ -146,7 +146,22 @@
     $('dataInfo').textContent = `${R.CLASSES.length} classes, ${R.ITEMS.length} items, ${R.SETS.length} ST sets, ${R.DUNGEONS.dungeons.length} dungeons. Data from ${m.source}, ${date}`;
   }
 
-  R.main = { showTab, applyLook, renderMute, toggleMute };
+  // Opens a settings section and scrolls to it.
+  function openSetting(id) {
+    if (R.settings.sidebarHidden) {
+      R.settings.sidebarHidden = false;
+      applySidebar();
+      R.saveSettings();
+    }
+    const d = $('sec-' + id);
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({ behavior: R.fx.motion() ? 'smooth' : 'auto', block: 'start' });
+    const first = d.querySelector('button, input, select');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  R.main = { showTab, applyLook, renderMute, toggleMute, openSetting };
 
   // ---------- Start ----------
 

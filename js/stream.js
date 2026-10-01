@@ -105,10 +105,37 @@
   let capture = null; // { id, done } while waiting for a new key
 
   function keyName(k) {
-    if (!k) return 'None';
+    if (!k) return 'Not set';
     if (k === ' ') return 'Space';
+    if (k.startsWith('Numpad')) return 'Num ' + k.slice(6);
     if (k.length === 1) return k.toUpperCase();
     return k;
+  }
+
+  // Numpad keys are kept apart from the number row.
+  function keyOf(e) {
+    if (e.code && e.code.startsWith('Numpad')) return e.code;
+    return e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  }
+
+  const anyKeyFor = (tab) => R.HOTKEYS.some((h) => h.tabs.includes(tab) && R.settings.keys[h.id]);
+
+  // Tabs with hotkey actions show a note until one of their keys is set.
+  function renderKeyNotes() {
+    for (const tab of ['randomizer', 'wheel', 'run']) {
+      const panel = $('tab-' + tab);
+      let note = panel.querySelector('.key-note');
+      if (!note) {
+        note = el('div', { class: 'key-note ctrl' }, [
+          el('span', { text: 'Hotkeys are off. Pick keys you do not use in game, like F keys or the numpad.' }),
+          el('button', { type: 'button', class: 'btn small', text: 'Set hotkeys', onclick: () => R.main.openSetting('hotkeys') }),
+        ]);
+        panel.appendChild(note);
+      }
+      note.hidden = anyKeyFor(tab);
+    }
+    const mute = $('muteBtn');
+    if (mute) mute.title = 'Sound on or off' + (R.settings.keys.mute ? ` (${keyName(R.settings.keys.mute)})` : '');
   }
 
   function doAction(id) {
@@ -147,15 +174,15 @@
       e.stopPropagation();
       if (e.key === 'Escape') capture.done(null, true);
       else if (e.key === 'Backspace' || e.key === 'Delete') capture.done('');
-      else capture.done(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+      else capture.done(keyOf(e));
       return;
     }
     if (R.follower || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target.closest && e.target.closest('input, select, textarea, [contenteditable]')) return;
-    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    const key = keyOf(e);
     // Space and Enter keep their normal job on buttons and links.
     if ((key === ' ' || key === 'Enter') && e.target.closest && e.target.closest('button, a, summary, [role="button"]')) return;
-    const hit = R.HOTKEYS.find((h) => R.settings.keys[h.id] === key);
+    const hit = key && R.HOTKEYS.find((h) => R.settings.keys[h.id] === key);
     if (!hit) return;
     if (R.modalOpen()) {
       // In a pop-up, the reveal and main keys press its main button.
@@ -189,7 +216,8 @@
   function hotkeyEditor(box) {
     const draw = () => {
       box.innerHTML = '';
-      box.appendChild(el('p', { class: 'hint', text: 'Click a key to change it. Backspace clears it. Hotkeys do nothing while you type in a text box.' }));
+      box.appendChild(el('p', { class: 'hint', text: 'Hotkeys start off. Click a button, then press the key you want. Backspace clears it, Escape cancels.' }));
+      box.appendChild(el('p', { class: 'hint', text: 'They only work while this page is the active window, and never while you type in a text box. Avoid keys you use in game, like WASD. F keys and the numpad are good picks.' }));
       const list = el('div', { class: 'key-list' });
       for (const h of R.HOTKEYS) {
         const btn = el('button', { type: 'button', class: 'key-btn', text: keyName(R.settings.keys[h.id]) });
@@ -198,9 +226,9 @@
       }
       box.appendChild(list);
       box.appendChild(el('button', {
-        type: 'button', class: 'btn small', text: 'Reset hotkeys',
+        type: 'button', class: 'btn small', text: 'Clear all hotkeys',
         onclick: () => {
-          R.settings.keys = Object.fromEntries(R.HOTKEYS.map((h) => [h.id, h.key]));
+          R.settings.keys = Object.fromEntries(R.HOTKEYS.map((h) => [h.id, '']));
           R.saveSettings();
           draw();
           renderRef();
@@ -215,12 +243,17 @@
     const box = $('hotkeyRef');
     if (!box) return;
     box.innerHTML = '';
-    box.appendChild(el('p', { class: 'hint', text: 'Change these in Settings > Hotkeys. Bind them to a Stream Deck as normal key presses.' }));
+    const none = !R.HOTKEYS.some((h) => R.settings.keys[h.id]);
+    box.appendChild(el('p', { class: 'hint', text: none
+      ? 'Hotkeys start off so they never clash with game keys like WASD. Set the ones you want in Settings > Hotkeys.'
+      : 'Change these in Settings > Hotkeys. Bind them to a Stream Deck as normal key presses.' }));
+    box.appendChild(el('button', { type: 'button', class: 'btn small', text: 'Set hotkeys', onclick: () => R.main.openSetting('hotkeys') }));
     const list = el('div', { class: 'key-list' });
     for (const h of R.HOTKEYS) {
       list.appendChild(el('div', { class: 'key-row' }, [el('span', { text: h.name }), el('kbd', { text: keyName(R.settings.keys[h.id]) })]));
     }
     box.appendChild(list);
+    renderKeyNotes();
   }
 
   // ---------- Stream tab ----------

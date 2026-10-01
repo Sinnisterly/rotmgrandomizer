@@ -12,7 +12,7 @@
   // Collapsible section. Remembers if it was open.
   function section(id, title, build, opts = {}) {
     const open = R.settings.open[id];
-    const d = el('details', { class: 'panel fold' });
+    const d = el('details', { class: 'panel fold', id: 'sec-' + id });
     d.open = open === undefined ? !!opts.open : open;
     const body = el('div', { class: 'fold-body' });
     d.append(el('summary', { text: title }), body);

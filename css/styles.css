@@ -912,6 +912,17 @@ body:not(.no-glow) .slot.shiny .sprite { animation: shiny-glow 2.4s steps(12) in
 .seen-list { margin: 0; padding: 0; list-style: none; font-size: 0.87rem; }
 .seen-list li { padding: 3px 0; border-bottom: 1px solid var(--edge); }
 .seen-list strong { color: #b48cff; }
+.key-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border: 2px dashed var(--edge-hi);
+  color: var(--muted);
+  font-size: 0.87rem;
+}
 .key-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .key-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.9rem; }
 .key-btn, kbd {

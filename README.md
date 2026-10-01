@@ -44,11 +44,11 @@ Pick a list and press **Spin**. Short lists use a wheel. Long lists, like dungeo
 - **Pop-out window**: opens a clean window that copies what you do on the main page. Capture it in OBS with Window Capture.
 - **OBS link**: add it as a Browser Source. The background can be transparent, green or magenta. OBS runs its own browser, so this is a separate copy that you control with Twitch commands or OBS Interact. To show exactly what you do on the main page, use the pop-out window.
 - **Twitch chat**: type your channel and press Connect. It only reads chat, so no login is needed. Chat can use `!roll`, `!reveal`, `!spin`, `!vote` and `!death`, and vote 1 to keep or 2 to reroll. You choose who can use commands.
-- **Hotkeys**: every main action has a key, and you can change them. They work as normal key presses from a Stream Deck.
+- **Hotkeys**: start off, so they never clash with game keys like WASD. Set the ones you want in Settings > Hotkeys. F keys and the numpad are good picks. They work as normal key presses from a Stream Deck, while the page is the active window.
 
 ## Look and sound
 
-Settings > General has the theme (Dungeon, Nexus or Void), font (Pixel, Pixel titles only, or Plain for easier reading), accent color, text size, effects (speed, particles, screen shake, flashes, glow) and sound (volume, style and which sounds play). Press **M** to mute.
+Settings > General has the theme (Dungeon, Nexus or Void), font (Pixel, Pixel titles only, or Plain for easier reading), accent color, text size, effects (speed, particles, screen shake, flashes, glow) and sound (volume, style and which sounds play). The Sound button at the top mutes everything.
 
 Settings are saved in your browser.
 
