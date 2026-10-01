@@ -14,6 +14,7 @@
     { id: 'deaths', name: 'Deaths', value: 0, kind: 'death' },
     { id: 'dungeons', name: 'Dungeons cleared', value: 0, kind: 'plain' },
     { id: 'whitebags', name: 'White bags', value: 0, kind: 'white' },
+    { id: 'setbags', name: 'Set bags', value: 0, kind: 'plain' },
   ];
 
   const saved = R.store.get(R.KEYS.run, null) || {};
