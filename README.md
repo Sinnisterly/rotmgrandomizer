@@ -2,32 +2,53 @@
   <img src="data/img/assets/rotmg-randomizer-logo-dark.png" alt="ROTMG Exalt Randomizer" width="480">
 </p>
 
-A randomizer for Realm of the Mad God Exalt. Press one button and get a random class with a full set of gear that class can actually equip. Roll a dungeon to run with it, add challenge rules, and share the result with friends.
+A randomizer for Realm of the Mad God Exalt. Roll a random class with gear it can equip, spin a wheel for your dungeon, pick challenge rules, track your run and race friends on a bingo card. Made to be fun on stream too.
 
-## How to use
+## Tabs
 
-1. Press **Randomize**. You get a class plus a weapon, ability, armor and ring for that class.
-2. Don't like one slot? Press its **reroll** button to reroll only that slot.
-3. Want to keep something? Press its **lock** button. Locked slots stay when you randomize again.
-4. Press **Roll dungeon** to pick a dungeon to run.
-5. Use **Copy link** to share your exact roll, or **Copy as text** to paste it into Discord.
-
-Tip: press **R** or **Space** to randomize without clicking.
-
-## Settings
-
-Open the settings panel on the right. Press **Hide** to collapse it and use the full width.
-
-| Setting | What it does |
+| Tab | What it does |
 | --- | --- |
-| Challenge modes | Pick a mode such as PPE, NPE, UPE or TPE to see its full rules. Modes marked "pool" also change which items can roll. |
-| Item types | How often Tiered, UT and ST items show up. Set one to 0 to turn it off. You can also turn off Shiny, Limited, Legacy and Reskinned items. |
-| Enchantments | Adds 1 to 4 random enchantments to each item. Incompatible enchantments never roll together. |
-| ST sets | The chance to roll a full ST set for the class instead of single items. |
-| Tier limits | The lowest and highest tier allowed for tiered items in each slot. |
-| Classes | Which classes can be rolled. |
-| Dungeons | Filter by difficulty (Beginner, Adept, Hard, Exalt) and dungeon type. |
-| Display | Turn the slot machine animation on or off. |
+| Randomizer | A random class plus a weapon, ability, armor and ring that class can use. |
+| Wheel | Spin for a dungeon, a dungeon difficulty, a class, a challenge, a curse or your own list. |
+| Challenges | Turn on challenge modes like PPE, UPE or TPE, and add your own house rules. |
+| Run | Run timer, counters for deaths, dungeons and white bags, active curses and a log. |
+| Bingo | A bingo card of RotMG goals. Share the link and friends get the same card. |
+| Stream | OBS overlay, Twitch chat commands and votes, and hotkeys. |
+
+## Randomizer
+
+1. Press **Randomize**. You get a class and four items.
+2. Press a slot's **reroll** button to reroll only that slot.
+3. Press a slot's **lock** button to keep it when you randomize again.
+4. Use **Copy link**, **Copy as text** or **Copy image** to share your build.
+
+Extras, all in the settings for the tab:
+
+- **Reveal**: every roll is hidden behind "?" cards. Click one to reveal it. Items drop in a loot bag that matches the in-game bag color, and better bags shake harder before they open.
+- **Reroll limit**: a set number of rerolls per run.
+- **No repeats**: classes or items you already rolled stay out until the list is used up.
+- **Daily roll**: everyone gets the same build today.
+- **Odds**: shows how rare your exact build was.
+
+## Wheel
+
+Pick a list and press **Spin**. Short lists use a wheel. Long lists, like dungeons, use a case opening reel. You can change this in the settings.
+
+- Turn on **Remove rolled options** and each result leaves the wheel until you put it back.
+- Spin **Dungeon difficulty** first, then spin a dungeon from that difficulty.
+- Win a class to roll gear for it. Win a challenge to turn it on.
+- Edit the Curses list or make your own lists under **Edit options**.
+
+## Streaming
+
+- **Pop-out window**: opens a clean window that copies what you do on the main page. Capture it in OBS with Window Capture.
+- **OBS link**: add it as a Browser Source. The background can be transparent, green or magenta.
+- **Twitch chat**: type your channel and press Connect. It only reads chat, so no login is needed. Chat can use `!roll`, `!reveal`, `!spin`, `!vote` and `!death`, and vote 1 to keep or 2 to reroll. You choose who can use commands.
+- **Hotkeys**: every main action has a key, and you can change them. They work as normal key presses from a Stream Deck.
+
+## Look and sound
+
+Settings > General has the theme (Dungeon, Nexus or Void), accent color, text size, effects (speed, particles, screen shake, flashes, glow) and sound (volume, style and which sounds play). Press **M** to mute.
 
 Settings are saved in your browser.
 
@@ -47,11 +68,13 @@ Made by [Loathe](https://github.com/Sinnisterly). Discord: @Sinnisterly.
 If you enjoy it, you can support me on [Ko-fi](https://ko-fi.com/loathed).
 
 <details>
-<summary>For maintainers: updating the data</summary>
+<summary>For maintainers</summary>
 
 - Run **Actions > Update item data > Run workflow** on GitHub. It downloads the current RealmEye data and commits it.
 - Locally (Node 18 or newer): `node tools/fetch-wiki.mjs && node tools/build-data.mjs`
 - When a new class ships, add its equipment to `CLASS_SLOTS` in `tools/build-data.mjs`.
+- The code is plain JavaScript with no build step. Each tab has its own file in `js/`.
+- Fonts are Pixelify Sans and Silkscreen, self hosted under the SIL Open Font License. See `css/fonts`.
 
 </details>
 
