@@ -887,7 +887,8 @@ body:not(.no-glow) .slot.shiny .sprite { animation: shiny-glow 2.4s steps(12) in
 }
 .bingo-cell span { overflow-wrap: anywhere; }
 .bingo-cell:hover { border-color: var(--edge-hi); }
-.bingo-cell.marked { background: var(--gold-soft); border-color: var(--gold-dark); color: var(--gold-light); }
+/* Solid, not see-through, so the text stays readable on a green screen pop-out. */
+.bingo-cell.marked { background: color-mix(in srgb, var(--gold) 16%, var(--panel)); border-color: var(--gold-dark); color: var(--gold-light); }
 .bingo-cell.marked::after {
   content: "";
   position: absolute;
