@@ -184,6 +184,8 @@
   R.stream.init();
   R.layout.init();
   R.events.init();
+  R.obs.init();
+  R.auth.init();
   R.twitch.init();
   bindFolds();
   renderDataInfo();

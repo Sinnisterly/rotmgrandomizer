@@ -1184,3 +1184,6 @@ input[type=number] { padding: 6px 8px; background: var(--bg); border: 2px solid 
 .spin-chip i { width: 24px; height: 24px; background: center / contain no-repeat; image-rendering: pixelated; }
 .spin-chip.is-curse { border-color: #6b2424; color: #ff8a80; }
 body.overlay .spin-history .label { text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000; }
+
+.steps { list-style: decimal; }
+.notice-line { margin: 0 0 8px; color: #f0c69a; font-size: 0.9rem; }

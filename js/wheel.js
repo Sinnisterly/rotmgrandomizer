@@ -464,7 +464,7 @@
   function run(plan) {
     spinning = true;
     R.closeModal();
-    R.emit('spinStart');
+    R.emit('spinStart', { auto: autoClose && !R.follower });
     $('wheelResult').textContent = '';
     $('spinBtn').disabled = true;
     $('wheelHub').disabled = true;

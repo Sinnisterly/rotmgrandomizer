@@ -20,6 +20,7 @@
     ['gift', 'Gift subs', 'gifts'],
     ['raid', 'Raid', 'viewers'],
     ['tip', 'Tip', 'amount'],
+    ['points', 'Channel points', 'points'],
     ['command', 'Chat command', ''],
   ];
   const ACTIONS = [
@@ -51,6 +52,7 @@
       case 'raid': return `${who} raided with ${e.amount} viewer${e.amount === 1 ? '' : 's'}`;
       case 'tip': return `${who} tipped ${e.text || e.amount}`;
       case 'command': return `${who} used ${R.settings.twitch.prefix || '!'}${e.name}`;
+      case 'points': return `${who} redeemed ${e.reward || 'a reward'}`;
       default: return who;
     }
   }
@@ -93,6 +95,8 @@
       if (e.type === 'command') {
         return (r.command || '').toLowerCase() === e.name && (ROLE_RANK[e.role] || 0) >= (WHO_RANK[r.who] || 0);
       }
+      // Channel point rules can name one reward. Empty means any reward.
+      if (e.type === 'points' && r.command && r.command.toLowerCase() !== (e.reward || '').toLowerCase()) return false;
       return (Number(e.amount) || 0) >= (Number(r.min) || 0);
     });
     if (e.type === 'command' || !list.length) return list;
@@ -424,6 +428,11 @@
         who.addEventListener('change', () => { r.who = who.value; changed(); });
         parts.push(el('span', { class: 'rule-word', text: R.settings.twitch.prefix || '!' }), cmd, el('span', { class: 'rule-word', text: 'by' }), who);
       } else {
+        if (r.event === 'points') {
+          const rw = el('input', { type: 'text', class: 'text-in rule-text', value: r.command || '', placeholder: 'Reward name, empty for any', 'aria-label': 'Reward name' });
+          rw.addEventListener('change', () => { r.command = rw.value.trim(); changed(); });
+          parts.push(rw, el('span', { class: 'rule-word', text: 'and costs' }));
+        }
         const unit = EVENTS.find(([v]) => v === r.event)[2];
         const min = el('input', { type: 'number', class: 'rule-num', min: 0, value: r.min, 'aria-label': 'At least' });
         min.addEventListener('change', () => { r.min = Math.max(0, Number(min.value) || 0); changed(); });
@@ -560,6 +569,8 @@
         el('li', { text: 'Twitch chat (irc-ws.chat.twitch.tv), only after you press Connect. It only reads chat and never logs in.' }),
         el('li', { text: 'StreamElements (realtime.streamelements.com), only if you save a token and press Connect.' }),
         el('li', { text: 'Streamlabs (sockets.streamlabs.com), only if you save a token and press Connect.' }),
+        el('li', { text: 'OBS on this computer (127.0.0.1), only if you save its password and press Connect.' }),
+        el('li', { text: 'Twitch login (id.twitch.tv, api.twitch.tv and eventsub.wss.twitch.tv), only if you log in for channel points.' }),
         el('li', { text: 'Links you click, like RealmEye item pages, open in a new tab.' }),
       ]),
       el('h4', { class: 'sub-head', text: 'What is saved in this browser' }),
@@ -607,6 +618,8 @@
       },
     }));
   }
+
+  R.secretField = secretField;
 
   R.events = {
     init() {

@@ -209,8 +209,12 @@
           <summary>Show on stream</summary>
           <div id="stageTools"></div>
         </details>
+        <details class="panel fold" data-fold="obs">
+          <summary>OBS WebSocket (Browser Sources that follow this page)</summary>
+          <div id="obsTools"></div>
+        </details>
         <details class="panel fold" data-fold="overlay">
-          <summary>OBS browser source</summary>
+          <summary>Run in OBS (no browser tab)</summary>
           <div id="overlayTools"></div>
         </details>
         <details class="panel fold" data-fold="twitch" open>
@@ -220,6 +224,10 @@
         <details class="panel fold" data-fold="sources">
           <summary>Tips (StreamElements and Streamlabs)</summary>
           <div id="sourceTools"></div>
+        </details>
+        <details class="panel fold" data-fold="points">
+          <summary>Channel points (Log in with Twitch)</summary>
+          <div id="pointsTools"></div>
         </details>
         <details class="panel fold" data-fold="eventRules" open>
           <summary>Event rules</summary>
@@ -282,6 +290,8 @@
   <script src="js/bingo.js"></script>
   <script src="js/twitch.js"></script>
   <script src="js/events.js"></script>
+  <script src="js/obs.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/stream.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/settings-ui.js"></script>

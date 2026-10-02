@@ -284,7 +284,7 @@
       // they live in R.secrets.
       events: {
         mode: 'queue', maxQueue: 20, combineSecs: 10, switchTab: false,
-        se: false, sl: false, seAck: false, slAck: false,
+        se: false, sl: false, seAck: false, slAck: false, pointsAck: false,
         rules: [
           { id: 'r1', on: true, event: 'bits', min: 500, each: false, action: 'spin', target: 'curses', cooldown: 0 },
           { id: 'r2', on: true, event: 'gift', min: 5, each: false, action: 'spin', target: 'curses', cooldown: 0 },
@@ -293,6 +293,7 @@
           { id: 'r5', on: false, event: 'command', command: 'curse', who: 'mods', min: 0, action: 'spin', target: 'curses', cooldown: 30 },
         ],
       },
+      obs: { port: 4455, ack: false, auto: false, sound: true, scene: '', back: true, onlyEvents: true },
       stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, history: true, historyCount: 3, layout: {} },
     };
   };
@@ -331,7 +332,17 @@
     // OBS links carry their own settings, and pop-outs follow the main window.
     if (R.overlay && (R.overlay.cfg || R.overlay.sync)) return;
     R.store.set(R.KEYS.settings, R.settings);
+    R.emit('settingsSaved');
   };
+
+  // Settings sent from the main window to an OBS Browser Source.
+  R.applySettings = function (saved) {
+    R.settings = mergeDefaults(R.defaultSettings(), JSON.parse(JSON.stringify(saved)));
+  };
+
+  // Site wide setup. The Twitch Client ID is public by design. It only names
+  // this site to Twitch, it is not a password.
+  R.config = { twitchClientId: '' };
 
   R.settings = R.loadSettings();
 
@@ -640,7 +651,9 @@
       view: R.params.get('view') || 'follow',
       bg: R.params.get('bg') || 'transparent',
       scale: Number(R.params.get('scale')) || 100,
-      sync: R.params.get('sync') === '1',
+      // sync=1 follows the main window in the same browser. sync=obs is an
+      // OBS Browser Source that follows it through OBS WebSocket.
+      sync: R.params.get('sync') === '1' || R.params.get('sync') === 'obs',
       sound: R.params.get('sound') === '1',
       cfg: null,
     };
@@ -668,7 +681,9 @@
   R.sync = {
     // Main window: tell overlay windows what happened.
     send(type, data) {
-      if (channel && !R.follower) channel.postMessage({ type, data });
+      if (R.follower) return;
+      if (channel) channel.postMessage({ type, data });
+      if (R.bridge) R.bridge(type, data);
     },
     // Overlay window: ask the main window for everything.
     hello() {
@@ -676,6 +691,8 @@
     },
     listen(fn) {
       if (channel) channel.addEventListener('message', (e) => fn(e.data.type, e.data.data));
+      // OBS hands messages to its Browser Sources as a window event.
+      window.addEventListener('rotmgr', (e) => { if (e.detail && e.detail.type) fn(e.detail.type, e.detail.data); });
     },
   };
 })();

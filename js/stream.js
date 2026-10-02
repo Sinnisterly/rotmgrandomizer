@@ -97,6 +97,12 @@
       case 'bingoFx': R.bingo.celebrate(true); break;
       case 'vote': R.twitch.renderVote(data); break;
       case 'banner': R.layout.banner(data.head, data.tail, true); break;
+      case 'settings':
+        // From the main page, through OBS. Settings never hold tokens.
+        R.applySettings(data);
+        R.main.applyLook();
+        R.emit('settingsLoaded');
+        break;
       default: break;
     }
   }
@@ -314,8 +320,8 @@
     // OBS browser source.
     const box = $('overlayTools');
     box.innerHTML = '';
-    box.appendChild(el('p', { class: 'hint', text: 'OBS runs its own browser, so a Browser Source cannot copy what you do on this page. This link is a separate copy that you control with Twitch commands, or by right clicking the source in OBS and picking Interact. It keeps your current settings, so copy it again after you change them. To show exactly what you do here, use the pop-out windows above.' }));
-    box.appendChild(el('p', { class: 'hint', text: 'The link never includes passwords or tokens.' }));
+    box.appendChild(el('p', { class: 'hint', text: 'Runs the randomizer inside OBS by itself, so no browser tab has to stay open. It does not copy this page: it is a separate copy that keeps the settings you have now, so copy the link again after you change them. Control it with Twitch commands and your event rules, or by right clicking the source in OBS and picking Interact.' }));
+    box.appendChild(el('p', { class: 'hint', text: 'Bits, subs, gift subs, raids and chat commands work here. Tips and channel points do not, because they need your tokens and tokens are never put in a link. For those, use the OBS WebSocket section above.' }));
     const grid2 = el('div', { class: 'tool-grid' });
     grid2.append(
       R.select('Show', s.view, VIEWS, (v) => { s.view = v; save(); }),
@@ -341,6 +347,7 @@
     },
     overlayTab,
     popOut,
+    sendAll,
     hotkeyEditor,
     keyName,
     doAction,
