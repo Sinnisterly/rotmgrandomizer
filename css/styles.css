@@ -304,6 +304,7 @@ input[type=range] { accent-color: var(--gold); }
 .weight-row.t .range-name { color: var(--tier); }
 .weight-row.ut .range-name { color: var(--ut); }
 .weight-row.st .range-name { color: var(--st); }
+.weight-row.shiny .range-name { color: var(--shiny); }
 
 .tier-list { display: flex; flex-direction: column; gap: 8px; }
 .tier-row { display: grid; grid-template-columns: 70px 1fr auto 1fr; align-items: center; gap: 6px; font-size: 0.93rem; }
@@ -585,6 +586,12 @@ body:not(.no-glow) .slot.shiny .sprite { animation: shiny-glow 2.4s steps(12) in
 .bag-stage { position: relative; height: 200px; display: grid; place-items: center; cursor: pointer; }
 .bag-holder { position: relative; z-index: 1; width: 120px; transform-origin: 50% 100%; }
 .bag-holder svg { display: block; width: 100%; height: auto; }
+.is-shiny .bag-holder svg { animation: shiny-hue 1.2s linear infinite; }
+.is-shiny .rays {
+  background: repeating-conic-gradient(rgba(255, 94, 94, 0.35) 0 10deg, transparent 10deg 20deg, rgba(94, 216, 255, 0.35) 20deg 30deg, transparent 30deg 40deg, rgba(255, 243, 94, 0.35) 40deg 50deg, transparent 50deg 60deg);
+}
+.is-shiny .reveal-name, .is-shiny .reveal-name.kind-ut { color: var(--shiny); }
+@keyframes shiny-hue { to { filter: hue-rotate(360deg); } }
 .bag-holder.drop { animation: bag-drop var(--drop, 450ms) cubic-bezier(0.3, 0, 0.5, 1); }
 .bag-holder.wobble { animation: bag-wobble 0.2s steps(4); }
 .bag-holder.popped { animation: bag-pop 0.3s steps(4) forwards; }

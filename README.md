@@ -28,6 +28,7 @@ Extras, all in the settings for the tab:
 - **Reroll limit**: a set number of rerolls per run.
 - **No repeats**: classes or items you already rolled stay out until the list is used up.
 - **Daily roll**: everyone gets the same build today.
+- **Shiny chance**: when an item that has a shiny version rolls, this is the chance it becomes shiny (5% by default). Shinies use their real sprite and get their own reveal.
 - **Odds**: shows how rare your exact build was.
 
 ## Wheel

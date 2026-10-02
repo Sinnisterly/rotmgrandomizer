@@ -30,7 +30,6 @@
   ];
   // Item flags that can be turned off in settings.
   R.FLAGS = [
-    { id: 'shiny', name: 'Shiny items', hint: 'Rare recolored versions of UT items.' },
     { id: 'limited', name: 'Limited edition items', hint: 'Event, shop and retired items.' },
     { id: 'legacy', name: 'Legacy items', hint: 'Old versions kept after a rework.' },
     { id: 'reskin', name: 'Reskinned items', hint: 'Alternate weapon styles like Spellblades, Flails and Tachis.' },
@@ -127,12 +126,30 @@
 
   // ---------- Data indexes ----------
 
-  R.ITEMS = DATA.items.map(([id, name, slot, tier, x, y, kind, flags]) => ({
+  let items = DATA.items.map(([id, name, slot, tier, x, y, kind, flags, shinyOf]) => ({
     id, name, slot, tier, x, y, kind,
     flags: flags ? flags.split(',') : [],
+    shinyOf: shinyOf || null,
     category: DATA.slotTypes[slot].category,
     typeName: DATA.slotTypes[slot].name,
   }));
+  // Data built before shinies were linked to their base item. Link them here
+  // with the same rules as tools/build-data.mjs: same name and a different
+  // sprite is a shiny, same name and the same sprite is a duplicate.
+  if (!items.some((it) => it.shinyOf)) {
+    const byName = new Map();
+    for (const it of items.slice().sort((a, b) => a.id - b.id)) {
+      const k = it.slot + '|' + it.name.toLowerCase();
+      const base = byName.get(k);
+      it.flags = it.flags.filter((f) => f !== 'shiny');
+      if (!base) { byName.set(k, it); continue; }
+      if (base.x === it.x && base.y === it.y) { it.dupe = true; continue; }
+      it.flags.push('shiny');
+      it.shinyOf = base.id;
+    }
+    items = items.filter((it) => !it.dupe);
+  }
+  R.ITEMS = items;
   R.ITEM_BY_ID = new Map(R.ITEMS.map((it) => [it.id, it]));
   R.CLASSES = DATA.classes;
   R.CLASS_BY_ID = new Map(R.CLASSES.map((c) => [c.id, c]));
@@ -141,7 +158,15 @@
     group: set.group,
     items: set.ids.map((id) => R.ITEM_BY_ID.get(id)).filter(Boolean),
   }));
-  R.KIND_COUNTS = R.ITEMS.reduce((acc, it) => ((acc[it.kind] = (acc[it.kind] || 0) + 1), acc), {});
+  // Base item id -> its shiny versions. Shinies never roll on their own, they
+  // replace the base item at the shiny chance.
+  R.SHINIES = new Map();
+  for (const it of R.ITEMS) {
+    if (!it.shinyOf) continue;
+    if (!R.SHINIES.has(it.shinyOf)) R.SHINIES.set(it.shinyOf, []);
+    R.SHINIES.get(it.shinyOf).push(it);
+  }
+  R.KIND_COUNTS = R.ITEMS.reduce((acc, it) => (it.shinyOf ? acc : ((acc[it.kind] = (acc[it.kind] || 0) + 1), acc)), {});
 
   // Highest tier per category, for the tier limit dropdowns.
   R.MAX_TIER = {};
@@ -211,6 +236,7 @@
       include: Object.fromEntries(R.FLAGS.map((f) => [f.id, true])),
       enchants: { on: true, count: 4, unique: false },
       setChance: 0,
+      shinyChance: 5,
       tiers,
       classesOff: [],
       noRepeat: { classes: false, items: false },
@@ -255,6 +281,9 @@
     // Older saves kept the animation toggle at the top level.
     if (typeof saved.animate === 'boolean' && !saved.fx) saved.fx = { animate: saved.animate };
     delete saved.animate;
+    // Shinies used to be a checkbox. Off becomes a 0% chance.
+    if (saved.include && saved.include.shiny === false && saved.shinyChance === undefined) saved.shinyChance = 0;
+    if (saved.include) delete saved.include.shiny;
     // Saves from before hotkeys started off had letter keys set. Clear them once.
     if (saved.keysVersion !== R.KEYS_VERSION) {
       delete saved.keys;
@@ -368,7 +397,7 @@
   R.slotPool = function (cls, category) {
     const slotType = cls.slots[R.CATEGORIES.indexOf(category)];
     const w = R.effectiveWeights();
-    return R.ITEMS.filter((it) => it.slot === slotType && w[it.kind] > 0 && R.itemAllowed(it));
+    return R.ITEMS.filter((it) => !it.shinyOf && it.slot === slotType && w[it.kind] > 0 && R.itemAllowed(it));
   };
 
   // ST sets where every piece fits the class and passes filters.
@@ -586,7 +615,9 @@
 
   // Settings packed into a link, for OBS browser sources that do not share storage.
   R.packSettings = function () {
+    // Never put streamer secrets in a link, even if one ends up in settings.
     const s = { ...R.settings, open: {} };
+    delete s.secrets;
     return btoa(unescape(encodeURIComponent(JSON.stringify(s))));
   };
 

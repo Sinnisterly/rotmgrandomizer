@@ -94,7 +94,7 @@
   let rot = 0;
   let spinning = false;
   let pendingRemove = null;
-  let reelOffset = 0;
+  let reelPos = 0; // reel position in cards, so a resize mid spin cannot move the result
   let reelStrip = [];
   const imgCache = new Map();
 
@@ -246,9 +246,12 @@
     });
   }
 
-  function setReel(offset) {
-    reelOffset = offset;
-    $('reelTrack').style.transform = `translateX(${-offset}px)`;
+  // Puts card number pos (fractions allowed) under the marker. The pixel
+  // offset is worked out from the reel's width right now, every time.
+  function setReel(pos) {
+    reelPos = pos;
+    const w = $('reelBox').clientWidth || 600;
+    $('reelTrack').style.transform = `translateX(${-(pos * REEL_CELL + REEL_CELL / 2 - w / 2)}px)`;
   }
 
   function idleReel() {
@@ -257,8 +260,7 @@
     const strip = [];
     while (strip.length < 30) strip.push(...R.shuffle(items));
     buildReel(strip.slice(0, 30));
-    const w = $('reelBox').clientWidth || 600;
-    setReel(10 * REEL_CELL + REEL_CELL / 2 - w / 2);
+    setReel(10);
   }
 
   // ---------- Render ----------
@@ -504,16 +506,16 @@
       $('wheelBox').hidden = true;
       $('reelBox').hidden = false;
       buildReel(plan.strip.map((i) => items[i]));
-      const w = $('reelBox').clientWidth || 600;
-      const start = 2 * REEL_CELL + REEL_CELL / 2 - w / 2;
-      const end = 46 * REEL_CELL + REEL_CELL / 2 - w / 2 + plan.jitter * (REEL_CELL - 20);
+      // Positions are in cards. The jitter keeps the stop inside the winning card.
+      const start = 2;
+      const end = 46 + plan.jitter * ((REEL_CELL - 20) / REEL_CELL);
       setReel(start);
       let lastIdx = -1;
       const t0 = performance.now();
       const step = (now) => {
         const t = duration ? Math.min(1, (now - t0) / duration) : 1;
         setReel(start + (end - start) * ease(t));
-        const idx = Math.floor((reelOffset + w / 2) / REEL_CELL);
+        const idx = Math.floor(reelPos + 0.5);
         if (idx !== lastIdx) {
           lastIdx = idx;
           R.sound.play('reelTick');
@@ -676,11 +678,12 @@
     $('spinBtn').addEventListener('click', spin);
     $('wheelHub').addEventListener('click', spin);
     $('wheelRestoreAll').addEventListener('click', restoreAll);
-    let resizeTimer = null;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => { if (!spinning && view && !$('tab-wheel').hidden) render(); }, 150);
-    });
+    // Keep the wheel and reel lined up when their size changes for any reason:
+    // window resize, phone rotation, the settings panel, or an OBS source.
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(() => { if (view && view.items.length && !spinning) drawWheel(); }).observe($('wheelBox'));
+      new ResizeObserver(() => { if (reelStrip.length) setReel(reelPos); }).observe($('reelBox'));
+    }
   }
 
   R.wheel = {
