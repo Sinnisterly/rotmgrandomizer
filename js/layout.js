@@ -31,7 +31,8 @@
   ];
 
   function pieces() {
-    const list = BASE.slice();
+    // With text on, the bingo card is drawn wider so the text fits.
+    const list = BASE.map((p) => (p.id === 'bingo' && R.settings.stream.bingoText ? { ...p, w: 600 } : p));
     R.run.data.counters.forEach((c, i) => {
       list.splice(1 + i, 0, { id: 'counter:' + c.id, name: 'Counter: ' + c.name, w: 200, x: 400 + i * 220, y: 40, on: true });
     });
@@ -124,9 +125,10 @@
     if (id === 'bingo') {
       const card = R.bingo.card();
       if (!card) return [[], true];
-      const grid = el('div', { class: 'w-bingo' });
+      const text = R.settings.stream.bingoText;
+      const grid = el('div', { class: 'w-bingo' + (text ? ' with-text' : '') });
       grid.style.setProperty('--n', card.size);
-      card.cells.forEach((t, i) => grid.appendChild(el('i', { class: card.marks[i] ? 'on' : '', title: t })));
+      card.cells.forEach((t, i) => grid.appendChild(el('i', { class: card.marks[i] ? 'on' : '', title: t, text: text ? (t === 'FREE' ? 'Free' : t) : '' })));
       const done = card.marks.filter(Boolean).length;
       return [[el('span', { class: 'label', text: `Bingo ${done} / ${card.cells.length}` }), grid], false];
     }
@@ -406,6 +408,11 @@
       list.appendChild(R.checkbox(p.name, cfg(p).on, (on) => { setCfg(p.id, { on }); draw(canvas, 'edit'); }));
     }
     box.append(el('h4', { class: 'sub-head', text: 'Pieces' }), list);
+    box.appendChild(R.checkbox('Show bingo text', R.settings.stream.bingoText, (on) => {
+      R.settings.stream.bingoText = on;
+      R.saveSettings();
+      draw(canvas, 'edit');
+    }, { small: 'Shows what each square asks for. Turn it off for a small card that only shows which squares are done.' }));
     box.appendChild(el('div', { class: 'row-btns' }, [
       el('button', { type: 'button', class: 'btn btn-gold', text: 'Open stream window', onclick: () => R.stream.popOut('layout') }),
       el('button', {

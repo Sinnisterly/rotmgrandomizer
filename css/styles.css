@@ -1106,6 +1106,8 @@ body.overlay .modal-back { background: transparent; }
 .w-bingo { display: grid; grid-template-columns: repeat(var(--n, 5), 1fr); gap: 4px; margin-top: 6px; }
 .w-bingo i { aspect-ratio: 1; background: var(--panel-3); border: 2px solid var(--edge); }
 .w-bingo i.on { background: var(--gold); border-color: var(--gold-dark); }
+.w-bingo.with-text i { display: grid; place-items: center; padding: 4px; overflow: hidden; color: var(--text); font: 600 0.95rem/1.15 var(--head); font-style: normal; text-align: center; overflow-wrap: anywhere; }
+.w-bingo.with-text i.on { color: var(--on-gold); }
 .w-alerts { min-height: 640px; }
 .stage-canvas.edit .w-alerts { border-style: dashed; background: color-mix(in srgb, var(--panel) 60%, transparent); }
 .w-alert-hint { margin: 0; padding-top: 280px; text-align: center; color: var(--muted); font: 600 1.3rem var(--head); }

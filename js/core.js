@@ -294,7 +294,7 @@
         ],
       },
       obs: { port: 4455, ack: false, auto: false, sound: true, scene: '', back: true, onlyEvents: true },
-      stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, history: true, historyCount: 3, layout: {} },
+      stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, history: true, historyCount: 3, bingoText: true, layout: {} },
     };
   };
 
