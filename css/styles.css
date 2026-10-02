@@ -1122,3 +1122,57 @@ body.overlay-stage .layout { display: none; }
 /* In pop-outs and OBS views the wheel has no box behind it, only the wheel. */
 body.overlay .wheel-stage { background: none; border: 0; box-shadow: none; clip-path: none; padding: 0; }
 body.overlay .wheel-result { text-shadow: 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 2px 2px 0 #000; }
+
+/* ---------- Viewer events ---------- */
+
+.warn-box { margin: 8px 0; padding: 10px 12px; background: color-mix(in srgb, var(--danger) 12%, var(--panel)); border: 2px solid #6b2a24; font-size: 0.9rem; }
+.warn-box strong { color: #ffb3aa; font-family: var(--head); }
+.warn-box ul { margin: 6px 0 0; padding-left: 18px; }
+.warn-box li { margin: 3px 0; }
+.secret-row { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+.secret-row input { flex: 1; font-family: var(--mono); }
+.eye { display: grid; place-items: center; width: 36px; height: 32px; padding: 0; }
+.eye svg { width: 18px; height: 18px; }
+.source-card .row-btns { margin-top: 6px; }
+.rule-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.rule { padding: 10px; background: var(--panel-2); border: 2px solid var(--edge); }
+.rule.off { opacity: 0.55; }
+.rule-main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.rule-main .check { align-items: center; }
+.rule-main .check input { margin-top: 0; }
+.rule-word { color: var(--muted); font-size: 0.9rem; }
+.rule-num { width: 90px; }
+input[type=number] { padding: 6px 8px; background: var(--bg); border: 2px solid var(--edge); color: var(--text); }
+.rule-text { flex: 1; min-width: 180px; width: auto; }
+.rule-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; font-size: 0.9rem; }
+.rule-cd { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.rule-cd .rule-num { width: 70px; }
+.queue-count { font-family: var(--head); }
+.queue-list { margin: 8px 0; padding: 0; list-style: none; }
+.queue-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
+.queue-list li.running { color: var(--gold); }
+.approve-chip { position: fixed; right: 16px; bottom: 16px; z-index: 940; }
+.plain-list { margin: 4px 0 10px; padding-left: 20px; font-size: 0.9rem; }
+.data-list { margin: 4px 0 12px; padding: 0; list-style: none; }
+.data-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
+.data-list li > span { flex: 1; }
+.data-pre { flex-basis: 100%; max-height: 220px; overflow: auto; margin: 4px 0 0; padding: 8px; background: var(--bg); border: 2px solid var(--edge); font: 0.75rem/1.4 var(--mono); white-space: pre-wrap; word-break: break-all; }
+
+/* Banner for the event behind an alert */
+.banner-stack { position: fixed; left: 50%; top: 14px; z-index: 960; display: flex; flex-direction: column; gap: 6px; transform: translateX(-50%); pointer-events: none; }
+.alert-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 18px;
+  background: var(--panel-3);
+  border: var(--px) solid var(--gold);
+  clip-path: var(--notch);
+  text-align: center;
+  animation: banner-in 0.3s steps(4);
+}
+.alert-banner strong { font: 700 1.3rem var(--head); color: var(--gold); }
+.alert-banner span { font: 600 1rem var(--head); }
+.alert-host .alert-banner { margin: 0 auto 10px; max-width: 560px; }
+@keyframes banner-in { from { transform: translateY(-16px); opacity: 0; } }

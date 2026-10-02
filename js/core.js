@@ -197,6 +197,28 @@
     wheel: 'rotmgr.wheel.v1',
     run: 'rotmgr.run.v1',
     bingo: 'rotmgr.bingo.v1',
+    secrets: 'rotmgr.secrets.v1',
+  };
+
+  // Streamer secrets (tip service tokens). Kept apart from settings, so they
+  // are never in pop-out windows, OBS links, shared settings or backups.
+  // They stay in this browser and are only sent to the service they belong to.
+  R.secrets = {
+    get(name) {
+      if (R.overlay) return '';
+      const all = R.store.get(R.KEYS.secrets, {});
+      return typeof all[name] === 'string' ? all[name] : '';
+    },
+    set(name, value) {
+      if (R.overlay) return;
+      const all = R.store.get(R.KEYS.secrets, {});
+      if (value) all[name] = value;
+      else delete all[name];
+      R.store.set(R.KEYS.secrets, all);
+    },
+    count() {
+      return Object.keys(R.store.get(R.KEYS.secrets, {})).length;
+    },
   };
 
   // ---------- Settings ----------
@@ -258,6 +280,19 @@
       keysVersion: R.KEYS_VERSION,
       twitch: { channel: '', autoConnect: false, who: 'mods', prefix: '!', voteTime: 30,
         commands: { roll: true, reveal: true, spin: true, vote: true, death: true } },
+      // Viewer events. Rules run when an event matches. Tokens are not here,
+      // they live in R.secrets.
+      events: {
+        mode: 'queue', maxQueue: 20, combineSecs: 10, switchTab: false,
+        se: false, sl: false, seAck: false, slAck: false,
+        rules: [
+          { id: 'r1', on: true, event: 'bits', min: 500, each: false, action: 'spin', target: 'curses', cooldown: 0 },
+          { id: 'r2', on: true, event: 'gift', min: 5, each: false, action: 'spin', target: 'curses', cooldown: 0 },
+          { id: 'r3', on: true, event: 'raid', min: 10, each: false, action: 'spin', target: 'dungeons', cooldown: 0 },
+          { id: 'r4', on: true, event: 'tip', min: 5, each: true, action: 'spin', target: 'curses', cooldown: 0 },
+          { id: 'r5', on: false, event: 'command', command: 'curse', who: 'mods', min: 0, action: 'spin', target: 'curses', cooldown: 30 },
+        ],
+      },
       stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, layout: {} },
     };
   };
@@ -304,6 +339,11 @@
 
   const handlers = {};
   R.on = function (name, fn) { (handlers[name] = handlers[name] || []).push(fn); };
+  R.off = function (name, fn) { handlers[name] = (handlers[name] || []).filter((f) => f !== fn); };
+  R.once = function (name, fn) {
+    const wrap = (d) => { R.off(name, wrap); fn(d); };
+    R.on(name, wrap);
+  };
   R.emit = function (name, data) { for (const fn of handlers[name] || []) fn(data); };
 
   // ---------- Seeded RNG ----------

@@ -112,6 +112,25 @@
     const msg = parse(line);
     if (msg.command === 'JOIN' || msg.command === 'ROOMSTATE') setStatus('on');
     if (msg.command === 'PRIVMSG') onChat(msg);
+    if (msg.command === 'USERNOTICE') onNotice(msg);
+  }
+
+  // Subs, gift subs and raids. Twitch sends these as USERNOTICE lines.
+  // A gift bomb sends one submysterygift line with the count, then one
+  // subgift line per gift. Only the first counts, so a bomb is one event.
+  function onNotice(msg) {
+    const t = msg.tags;
+    const id = t['msg-id'];
+    const user = t['display-name'] || t.login || 'Someone';
+    if (id === 'sub' || id === 'resub') {
+      R.events.handle({ type: 'sub', user, amount: Number(t['msg-param-cumulative-months']) || 1, tier: t['msg-param-sub-plan'] });
+    } else if (id === 'submysterygift' || id === 'anonsubmysterygift') {
+      R.events.handle({ type: 'gift', user: id.startsWith('anon') ? 'An anonymous gifter' : user, amount: Number(t['msg-param-mass-gift-count']) || 1 });
+    } else if ((id === 'subgift' || id === 'anonsubgift') && !t['msg-param-community-gift-id']) {
+      R.events.handle({ type: 'gift', user: id.startsWith('anon') ? 'An anonymous gifter' : user, amount: 1 });
+    } else if (id === 'raid') {
+      R.events.handle({ type: 'raid', user: t['msg-param-displayName'] || user, amount: Number(t['msg-param-viewerCount']) || 0 });
+    }
   }
 
   // ---------- Chat ----------
@@ -121,6 +140,7 @@
     if (badges.includes('broadcaster/')) return 'broadcaster';
     if (msg.tags.mod === '1' || badges.includes('moderator/')) return 'mod';
     if (badges.includes('vip/')) return 'vip';
+    if (msg.tags.subscriber === '1' || badges.includes('subscriber/') || badges.includes('founder/')) return 'sub';
     return 'viewer';
   }
 
@@ -134,6 +154,8 @@
   function onChat(msg) {
     const user = msg.tags['display-name'] || msg.nick;
     const text = msg.text.trim();
+    // Cheers come as chat messages with a bits tag.
+    if (Number(msg.tags.bits) > 0) R.events.handle({ type: 'bits', user, amount: Number(msg.tags.bits) });
     if (vote && !vote.result) {
       const t = text.toLowerCase();
       const choice = t === '1' || t === 'keep' ? 'keep' : t === '2' || t === 'reroll' ? 'reroll' : null;
@@ -147,6 +169,8 @@
     const prefix = R.settings.twitch.prefix || '!';
     if (!text.startsWith(prefix)) return;
     const [name, arg] = text.slice(prefix.length).trim().toLowerCase().split(/\s+/);
+    // The streamer's own command rules come first.
+    if (name && R.events.handle({ type: 'command', name, user, role: roleOf(msg) })) return;
     const cmd = COMMANDS.find((c) => c.name === name);
     if (!cmd || !R.settings.twitch.commands[cmd.id]) return;
     const role = roleOf(msg);

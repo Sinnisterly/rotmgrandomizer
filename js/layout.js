@@ -374,7 +374,26 @@
     box.appendChild(el('p', { class: 'hint', text: 'The stream window is 1920 by 1080 and scales to fit. Size the window to 16 by 9, or crop it in OBS. Pieces with nothing to show, like curses when there are none, stay hidden on stream.' }));
   }
 
+  // A short line about the event that started an alert, like
+  // "Sam cheered 500 bits / Spin Curses". Shows in the alert area of stream
+  // windows, or at the top of the page everywhere else.
+  function banner(head, tail, remote) {
+    if (!remote) R.sync.send('banner', { head, tail });
+    const b = el('div', { class: 'alert-banner' }, [el('strong', { text: head }), tail ? el('span', { text: tail }) : null]);
+    if (live && live.host) {
+      live.host.insertBefore(b, live.host.firstChild);
+      holdUntil = Math.max(holdUntil, Date.now() + hold());
+    } else {
+      let stack = $('bannerStack');
+      if (!stack) stack = document.body.appendChild(el('div', { id: 'bannerStack', class: 'banner-stack' }));
+      stack.appendChild(b);
+    }
+    R.sound.play('vote');
+    setTimeout(() => b.remove(), hold() + 800);
+  }
+
   R.layout = {
+    banner,
     init() {
       bindAlerts();
       const o = R.overlay;

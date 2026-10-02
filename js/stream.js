@@ -96,6 +96,7 @@
       case 'bingo': if (data) R.bingo.applyRemote(data); break;
       case 'bingoFx': R.bingo.celebrate(true); break;
       case 'vote': R.twitch.renderVote(data); break;
+      case 'banner': R.layout.banner(data.head, data.tail, true); break;
       default: break;
     }
   }

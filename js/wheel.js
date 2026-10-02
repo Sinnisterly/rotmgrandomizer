@@ -429,8 +429,12 @@
   const ease = (t) => 1 - Math.pow(1 - t, 4);
 
   // Main window: pick a result and spin to it.
-  function spin() {
+  let autoClose = false;
+
+  // opts.auto: the result pop-up closes on its own (used by viewer events).
+  function spin(opts) {
     if (R.follower || spinning) return;
+    autoClose = !!(opts && opts.auto === true);
     applyPendingRemove();
     view = buildView();
     if (!view.items.length) {
@@ -550,7 +554,10 @@
     }
     applyResult(result);
     if (view.elim) pendingRemove = { preset: view.id, id: result.id };
-    if (R.settings.wheel.popup) showResult(result, true);
+    if (R.settings.wheel.popup) {
+      showResult(result, true);
+      if (autoClose) setTimeout(() => R.closeModal(), (Number(R.settings.stream.hold) || 6) * 1000);
+    }
     else setTimeout(() => { if (!spinning) { applyPendingRemove(); render(); } }, 1400);
   }
 
@@ -644,16 +651,17 @@
 
   // Switches to the wheel tab with a list and spins it.
   // Spinning dungeons from here always uses the full list from the filters.
-  function spinPreset(id) {
+  // opts.stay keeps this page on its tab, opts.auto closes the result on its own.
+  function spinPreset(id, opts = {}) {
     if (R.follower) return;
-    R.main.showTab('wheel');
+    if (!opts.stay) R.main.showTab('wheel');
     if (id && id !== R.settings.wheel.preset) setPreset(id);
     else if (id === 'dungeons' && data.group) {
       data.group = null;
       save();
       render();
     }
-    setTimeout(spin, 150);
+    setTimeout(() => spin(opts), 150);
   }
 
   // ---------- Sync ----------
@@ -696,6 +704,7 @@
     setPreset,
     onRemote,
     isSpinning: () => spinning,
+    presetList: () => presets().map((p) => [p.id, p.name]),
     // What the wheel shows now, for windows that follow this one.
     snapshot: () => (R.follower ? view : buildView()),
     data,

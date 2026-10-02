@@ -148,6 +148,14 @@
   }
 
   // Opens a settings section and scrolls to it.
+  // Opens a folding panel in a tab and scrolls to it.
+  function openFold(name) {
+    const d = document.querySelector(`details[data-fold="${name}"]`);
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({ behavior: R.fx.motion() ? 'smooth' : 'auto', block: 'start' });
+  }
+
   function openSetting(id) {
     if (R.settings.sidebarHidden) {
       R.settings.sidebarHidden = false;
@@ -162,7 +170,7 @@
     if (first) first.focus({ preventScroll: true });
   }
 
-  R.main = { showTab, applyLook, renderMute, toggleMute, openSetting };
+  R.main = { showTab, applyLook, renderMute, toggleMute, openSetting, openFold };
 
   // ---------- Start ----------
 
@@ -175,6 +183,7 @@
   R.bingo.init();
   R.stream.init();
   R.layout.init();
+  R.events.init();
   R.twitch.init();
   bindFolds();
   renderDataInfo();
