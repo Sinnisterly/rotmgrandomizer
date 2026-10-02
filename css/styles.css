@@ -1119,3 +1119,6 @@ body.overlay-stage .layout { display: none; }
 .alert-host #wheelStage.alert-idle { display: none; }
 .alert-host .wheel-stage { margin: 0; }
 .modal-back.in-host { position: absolute; inset: 0; z-index: 5; padding: 0; background: transparent; }
+/* In pop-outs and OBS views the wheel has no box behind it, only the wheel. */
+body.overlay .wheel-stage { background: none; border: 0; box-shadow: none; clip-path: none; padding: 0; }
+body.overlay .wheel-result { text-shadow: 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 2px 2px 0 #000; }
