@@ -1,6 +1,7 @@
 /*
- * Stream tools: overlay mode for OBS, a pop-out window that copies the main
- * window, and hotkeys.
+ * Stream tools: overlay mode for OBS, pop-out windows that copy the main
+ * window (one per tab, an alerts window and the Show on stream layout), and
+ * hotkeys.
  */
 (function () {
   'use strict';
@@ -16,6 +17,17 @@
     ['rules', 'Active rules'],
     ['run', 'Run tracker'],
     ['bingo', 'Bingo'],
+    ['layout', 'Show on stream layout'],
+    ['alerts', 'Alerts only'],
+  ];
+  // Pop-outs that can be opened from the Stream tab, each in its own window.
+  const POPOUTS = [
+    ['randomizer', 'Randomizer', 'The build and the dungeon.'],
+    ['wheel', 'Wheel', 'The wheel or reel, always on screen.'],
+    ['rules', 'Active rules', 'Challenge modes and house rules.'],
+    ['run', 'Run tracker', 'Timer, counters, curses and the log.'],
+    ['bingo', 'Bingo', 'The bingo card.'],
+    ['alerts', 'Alerts', 'Empty until a spin or reveal happens, then it pops up and hides again.'],
   ];
   const BGS = [
     ['transparent', 'Transparent (OBS browser source)'],
@@ -32,6 +44,7 @@
     document.body.classList.add('overlay');
     document.body.dataset.bg = o.bg;
     if (o.view === 'rules') document.body.classList.add('overlay-rules');
+    document.title = 'RotMG Randomizer: ' + (VIEWS.find(([v]) => v === o.view) || ['', 'Overlay'])[1];
     $('layout').style.zoom = String(o.scale / 100);
   }
 
@@ -47,8 +60,10 @@
     return location.origin + location.pathname + '?' + p.toString();
   }
 
-  function popOut() {
-    const w = window.open(overlayUrl({ sync: '1' }), 'rotmgr-overlay', 'width=960,height=820');
+  // Each view opens in its own window, so several can be open at once.
+  function popOut(view) {
+    const size = view === 'layout' ? 'width=1280,height=760' : view === 'alerts' ? 'width=760,height=820' : 'width=960,height=820';
+    const w = window.open(overlayUrl({ sync: '1', view, bg: R.settings.stream.popBg }), 'rotmgr-' + view, size);
     if (!w) R.toast('Your browser blocked the pop-up. Allow pop-ups for this site.');
   }
 
@@ -57,10 +72,10 @@
   function sendAll() {
     R.sync.send('tab', R.settings.tab);
     R.sync.send('rand', { snap: R.rand.snapshot(), spun: [] });
-    R.wheel.render();
+    R.sync.send('wheel', R.wheel.snapshot());
     R.sync.send('run', R.run.data);
-    R.bingo.render();
-    R.sync.send('bingo', R.bingo.card ? R.bingo.card() : null);
+    R.sync.send('bingo', R.bingo.card());
+    R.twitch.renderVote();
   }
 
   function follow(type, data) {
@@ -81,6 +96,13 @@
       case 'bingo': if (data) R.bingo.applyRemote(data); break;
       case 'bingoFx': R.bingo.celebrate(true); break;
       case 'vote': R.twitch.renderVote(data); break;
+      case 'banner': R.layout.banner(data.head, data.tail, true); break;
+      case 'settings':
+        // From the main page, through OBS. Settings never hold tokens.
+        R.applySettings(data);
+        R.main.applyLook();
+        R.emit('settingsLoaded');
+        break;
       default: break;
     }
   }
@@ -94,6 +116,7 @@
         if (e.key !== R.KEYS.settings) return;
         R.settings = R.loadSettings();
         R.main.applyLook();
+        R.emit('settingsLoaded');
       });
     } else {
       R.sync.listen((type) => { if (type === 'hello') sendAll(); });
@@ -259,34 +282,56 @@
   // ---------- Stream tab ----------
 
   function buildOverlayTools() {
-    const box = $('overlayTools');
     const s = R.settings.stream;
     const save = () => R.saveSettings();
-    box.innerHTML = '';
-    box.appendChild(el('p', { class: 'hint', text: 'A clean view with only the results, for OBS. Settings, buttons and the page frame are hidden.' }));
+
+    // Pop-out windows: one per tab, plus alerts.
+    const pop = $('popoutTools');
+    pop.innerHTML = '';
+    pop.appendChild(el('p', { class: 'hint', text: 'Each window copies what you do on this page, live. Open as many as you like and capture each one in OBS with Window Capture. Keep this page open while you stream.' }));
     const grid = el('div', { class: 'tool-grid' });
     grid.append(
+      R.select('Background', s.popBg, BGS.slice(1), (v) => { s.popBg = v; save(); }),
+      R.range('Size', s.scale, 50, 200, 10, (v) => { s.scale = v; save(); }, { fmt: (v) => v + '%' }),
+    );
+    pop.appendChild(grid);
+    pop.appendChild(el('p', { class: 'hint', text: 'Window Capture cannot see through a window. Pick Green screen or Magenta screen and add a Chroma Key filter in OBS to hide the background.' }));
+    const list = el('div', { class: 'pop-list' });
+    for (const [view, name, desc] of POPOUTS) {
+      list.appendChild(el('div', { class: 'pop-row' }, [
+        el('div', {}, [el('strong', { text: name }), el('small', { text: desc })]),
+        el('button', { type: 'button', class: 'btn small', text: 'Pop out', onclick: () => popOut(view) }),
+      ]));
+    }
+    pop.appendChild(list);
+    pop.appendChild(el('h4', { class: 'sub-head', text: 'Spins and reveals' }));
+    pop.append(
+      R.checkbox('Jump to the wheel for spins', s.jump, (on) => { s.jump = on; save(); },
+        { small: 'A tab pop-out, like Run, shows the wheel while it spins, then goes back on its own.' }),
+      R.range('Show results for', s.hold, 2, 20, 1, (v) => { s.hold = v; save(); }, { fmt: (v) => v + 's' }),
+      R.checkbox('Show earlier results under the wheel', s.history, (on) => { s.history = on; save(); R.layout.renderHistory(); },
+        { small: 'When one event gives several spins, like 1500 bits on a 500 bit rule, the earlier results stay on screen below the latest one.' }),
+      R.range('Earlier results', s.historyCount, 1, 10, 1, (v) => { s.historyCount = v; save(); R.layout.renderHistory(); }),
+    );
+
+    // Show on stream editor.
+    R.layout.editor($('stageTools'));
+
+    // OBS browser source.
+    const box = $('overlayTools');
+    box.innerHTML = '';
+    box.appendChild(el('p', { class: 'hint', text: 'Runs the randomizer inside OBS by itself, so no browser tab has to stay open. It does not copy this page: it is a separate copy that keeps the settings you have now, so copy the link again after you change them. Control it with Twitch commands and your event rules, or by right clicking the source in OBS and picking Interact.' }));
+    box.appendChild(el('p', { class: 'hint', text: 'Bits, subs, gift subs, raids and chat commands work here. Tips and channel points do not, because they need your tokens and tokens are never put in a link. For those, use the OBS WebSocket section above.' }));
+    const grid2 = el('div', { class: 'tool-grid' });
+    grid2.append(
       R.select('Show', s.view, VIEWS, (v) => { s.view = v; save(); }),
       R.select('Background', s.bg, BGS, (v) => { s.bg = v; save(); }),
     );
-    box.appendChild(grid);
-    box.appendChild(R.range('Size', s.scale, 50, 200, 10, (v) => { s.scale = v; save(); }, { fmt: (v) => v + '%' }));
-
-    box.append(
-      el('div', { class: 'tool-card' }, [
-        el('h4', { class: 'sub-head', text: 'Pop-out window' }),
-        el('p', { class: 'hint', text: 'Opens a window that copies everything you do on this page. Capture it in OBS with Window Capture. Pick Green screen and add a Chroma Key filter to hide the background.' }),
-        el('button', { type: 'button', class: 'btn btn-gold', text: 'Open pop-out', onclick: popOut }),
-      ]),
-      el('div', { class: 'tool-card' }, [
-        el('h4', { class: 'sub-head', text: 'OBS browser source' }),
-        el('p', { class: 'hint', text: 'Add this link as a Browser Source. OBS runs its own browser, so this does not copy what you do on this page. It is a separate copy you control with Twitch commands, or by right clicking the source in OBS and picking Interact. It keeps your current settings, so copy it again after you change them. To show exactly what you do here, use the pop-out window.' }),
-        el('button', {
-          type: 'button', class: 'btn', text: 'Copy OBS link',
-          onclick: () => R.copy(overlayUrl({ sound: '1', cfg: R.packSettings() }), 'OBS link copied'),
-        }),
-      ]),
-    );
+    box.appendChild(grid2);
+    box.appendChild(el('button', {
+      type: 'button', class: 'btn', text: 'Copy OBS link',
+      onclick: () => R.copy(overlayUrl({ sound: '1', cfg: R.packSettings() }), 'OBS link copied'),
+    }));
   }
 
   R.stream = {
@@ -301,6 +346,8 @@
       renderRef();
     },
     overlayTab,
+    popOut,
+    sendAll,
     hotkeyEditor,
     keyName,
     doAction,

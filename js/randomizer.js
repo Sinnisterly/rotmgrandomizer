@@ -67,7 +67,12 @@
     if (R.poolOverride) return;
     const s = R.settings.noRepeat;
     if (s.classes && state.classId !== null && !used.classes.includes(state.classId)) used.classes.push(state.classId);
-    if (s.items) for (const c of CATEGORIES) if (state.items[c] !== null && !used.items.includes(state.items[c])) used.items.push(state.items[c]);
+    if (s.items) {
+      for (const c of CATEGORIES) {
+        const id = baseId(state.items[c]);
+        if (id !== null && !used.items.includes(id)) used.items.push(id);
+      }
+    }
     if (s.classes || s.items) saveUsed();
   }
 
@@ -89,18 +94,40 @@
   }
 
   // Chance this exact build comes up. Returns N for "1 in N", or null.
+  // The base item of a shiny, or the item itself.
+  function baseId(id) {
+    const it = ITEM_BY_ID.get(id);
+    return it ? it.shinyOf || it.id : null;
+  }
+
+  const shinyChance = () => Number((R.poolOverride || R.settings).shinyChance) || 0;
+
+  // At the shiny chance, swap an item for one of its shiny versions.
+  function maybeShiny(it, rng) {
+    const list = it && R.SHINIES.get(it.id);
+    const chance = shinyChance();
+    if (!list || !chance) return it;
+    return rng() * 100 < chance ? R.pick(list, rng) : it;
+  }
+
   // Items already rolled stay out of the pool, except the ones in this build.
   function buildOdds() {
     const cls = currentClass();
     if (!cls || state.fromSet) return null;
-    const mine = new Set(Object.values(state.items));
+    const mine = new Set(Object.values(state.items).map(baseId));
     const classes = R.enabledClasses()
       .filter((c) => !noRepeat('classes') || c.id === cls.id || !used.classes.includes(c.id));
     if (!classes.some((c) => c.id === cls.id)) return null;
     let p = 1 / classes.length;
     for (const c of CATEGORIES) {
-      const it = ITEM_BY_ID.get(state.items[c]);
-      if (!it) continue;
+      const rolled = ITEM_BY_ID.get(state.items[c]);
+      if (!rolled) continue;
+      const it = rolled.shinyOf ? ITEM_BY_ID.get(rolled.shinyOf) : rolled;
+      const shinies = R.SHINIES.get(it.id);
+      if (shinies && shinyChance()) {
+        const ch = shinyChance() / 100;
+        p *= rolled.shinyOf ? ch / shinies.length : 1 - ch;
+      } else if (rolled.shinyOf) return null;
       const list = R.slotPool(cls, c).filter((x) => !noRepeat('items') || mine.has(x.id) || !used.items.includes(x.id));
       if (!list.includes(it)) return null;
       const w = presentWeights(list);
@@ -123,7 +150,7 @@
 
   function rollSlot(category, rng) {
     const cls = currentClass();
-    const it = cls ? rollItem(cls, category, rng) : null;
+    const it = cls ? maybeShiny(rollItem(cls, category, rng), rng) : null;
     state.items[category] = it ? it.id : null;
     state.enchants[category] = it ? R.rollEnchants(category, rng) : [];
   }
@@ -171,7 +198,7 @@
           const set = R.pick(sets, rng);
           for (const it of set.items) {
             if (!state.locks[it.category]) {
-              state.items[it.category] = it.id;
+              state.items[it.category] = maybeShiny(it, rng).id;
               state.enchants[it.category] = R.rollEnchants(it.category, rng);
             }
           }
@@ -671,7 +698,7 @@
     const it = ITEM_BY_ID.get(state.items[slot]);
     if (!it) return;
     const bag = R.bagOf(it);
-    R.sound.play(R.BAGS[bag].rank >= 3 ? 'bag-' + bag : 'land');
+    R.sound.play(R.isShiny(it) ? 'shiny' : R.BAGS[bag].rank >= 3 ? 'bag-' + bag : 'land');
     R.fx.forItem(it, card.querySelector('.sprite'), { quiet: true });
   }
 
@@ -778,7 +805,7 @@
       return;
     }
     const it = ITEM_BY_ID.get(state.items[slot]);
-    R.sound.play('bag-' + R.bagOf(it));
+    R.sound.play(it && R.isShiny(it) ? 'shiny' : 'bag-' + R.bagOf(it));
     R.fx.forItem(it, node);
   }
 
@@ -821,17 +848,20 @@
     const cls = currentClass();
     const bagId = slot === 'class' ? null : R.bagOf(it);
     const bag = bagId ? R.BAGS[bagId] : null;
+    const shiny = !!(it && R.isShiny(it));
     const color = bag ? bag.color : '#e0b43c';
-    const rank = bag ? bag.rank : 2;
+    // Shinies shake one more time than a white bag.
+    const rank = shiny ? 6 : bag ? bag.rank : 2;
     const sp = R.fx.speed();
     const motion = R.fx.motion();
 
     const rays = el('div', { class: 'rays' });
     const holder = el('div', { class: 'bag-holder' });
-    if (bag) holder.innerHTML = R.fx.bagSvg(bagId);
+    if (bag) holder.innerHTML = R.fx.bagSvg(shiny ? 'shiny' : bagId);
     else holder.appendChild(el('div', { class: 'mystery-portrait', text: '?' }));
     const stage = el('div', { class: 'bag-stage' }, [rays, holder]);
-    const hint = el('p', { class: 'reveal-hint', text: bag ? bag.name : 'Your class is...' });
+    const bagName = shiny ? 'Shiny ' + bag.name.toLowerCase() : bag ? bag.name : 'Mystery';
+    const hint = el('p', { class: 'reveal-hint', text: bag ? bagName : 'Your class is...' });
 
     const sprite = el('div', { class: 'sprite huge' });
     const result = el('div', { class: 'reveal-result', hidden: true });
@@ -839,7 +869,7 @@
     const doneBtn = el('button', { class: 'btn', type: 'button', text: 'Close' });
     const btns = el('div', { class: 'row-btns center', hidden: true }, [nextBtn, doneBtn]);
 
-    const box = el('div', { class: 'reveal-pop' + (bag ? ' bag-' + bagId : ' is-class') }, [stage, hint, result, btns]);
+    const box = el('div', { class: 'reveal-pop' + (bag ? ' bag-' + bagId : ' is-class') + (shiny ? ' is-shiny' : '') }, [stage, hint, result, btns]);
     box.style.setProperty('--bag', color);
     const close = R.modal(box, {
       className: 'reveal-modal',
@@ -916,7 +946,7 @@
     }
     const openAt = wobbleStart + wobbles * 200 * sp + 120;
     if (R.settings.reveal.autoOpen || R.follower) timers.push(setTimeout(() => open(), openAt));
-    else timers.push(setTimeout(() => { hint.textContent = (bag ? bag.name : 'Mystery') + '. Click to open'; }, openAt));
+    else timers.push(setTimeout(() => { hint.textContent = bagName + '. Click to open'; }, openAt));
   }
 
   // ---------- Image export ----------

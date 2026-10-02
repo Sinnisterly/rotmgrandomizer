@@ -56,7 +56,8 @@
     });
   }
 
-  function showTab(id) {
+  // opts.force lets a locked pop-out jump to the wheel and back.
+  function showTab(id, opts = {}) {
     if (!TABS.some((t) => t.id === id)) id = 'randomizer';
     // The Stream tab is all controls, so an overlay would be blank on it.
     if (R.overlay && id === 'stream') {
@@ -64,7 +65,7 @@
       id = 'randomizer';
     }
     // An overlay locked to one view never changes tab.
-    if (R.overlay && R.overlay.view !== 'follow' && R.stream.overlayTab(R.overlay.view) !== id) return;
+    if (R.overlay && !opts.force && R.overlay.view !== 'follow' && R.stream.overlayTab(R.overlay.view) !== id) return;
     const changed = R.settings.tab !== id;
     R.settings.tab = id;
     for (const t of TABS) {
@@ -147,6 +148,14 @@
   }
 
   // Opens a settings section and scrolls to it.
+  // Opens a folding panel in a tab and scrolls to it.
+  function openFold(name) {
+    const d = document.querySelector(`details[data-fold="${name}"]`);
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({ behavior: R.fx.motion() ? 'smooth' : 'auto', block: 'start' });
+  }
+
   function openSetting(id) {
     if (R.settings.sidebarHidden) {
       R.settings.sidebarHidden = false;
@@ -161,7 +170,7 @@
     if (first) first.focus({ preventScroll: true });
   }
 
-  R.main = { showTab, applyLook, renderMute, toggleMute, openSetting };
+  R.main = { showTab, applyLook, renderMute, toggleMute, openSetting, openFold };
 
   // ---------- Start ----------
 
@@ -173,6 +182,10 @@
   R.run.init();
   R.bingo.init();
   R.stream.init();
+  R.layout.init();
+  R.events.init();
+  R.obs.init();
+  R.auth.init();
   R.twitch.init();
   bindFolds();
   renderDataInfo();

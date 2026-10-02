@@ -30,7 +30,6 @@
   ];
   // Item flags that can be turned off in settings.
   R.FLAGS = [
-    { id: 'shiny', name: 'Shiny items', hint: 'Rare recolored versions of UT items.' },
     { id: 'limited', name: 'Limited edition items', hint: 'Event, shop and retired items.' },
     { id: 'legacy', name: 'Legacy items', hint: 'Old versions kept after a rework.' },
     { id: 'reskin', name: 'Reskinned items', hint: 'Alternate weapon styles like Spellblades, Flails and Tachis.' },
@@ -127,12 +126,30 @@
 
   // ---------- Data indexes ----------
 
-  R.ITEMS = DATA.items.map(([id, name, slot, tier, x, y, kind, flags]) => ({
+  let items = DATA.items.map(([id, name, slot, tier, x, y, kind, flags, shinyOf]) => ({
     id, name, slot, tier, x, y, kind,
     flags: flags ? flags.split(',') : [],
+    shinyOf: shinyOf || null,
     category: DATA.slotTypes[slot].category,
     typeName: DATA.slotTypes[slot].name,
   }));
+  // Data built before shinies were linked to their base item. Link them here
+  // with the same rules as tools/build-data.mjs: same name and a different
+  // sprite is a shiny, same name and the same sprite is a duplicate.
+  if (!items.some((it) => it.shinyOf)) {
+    const byName = new Map();
+    for (const it of items.slice().sort((a, b) => a.id - b.id)) {
+      const k = it.slot + '|' + it.name.toLowerCase();
+      const base = byName.get(k);
+      it.flags = it.flags.filter((f) => f !== 'shiny');
+      if (!base) { byName.set(k, it); continue; }
+      if (base.x === it.x && base.y === it.y) { it.dupe = true; continue; }
+      it.flags.push('shiny');
+      it.shinyOf = base.id;
+    }
+    items = items.filter((it) => !it.dupe);
+  }
+  R.ITEMS = items;
   R.ITEM_BY_ID = new Map(R.ITEMS.map((it) => [it.id, it]));
   R.CLASSES = DATA.classes;
   R.CLASS_BY_ID = new Map(R.CLASSES.map((c) => [c.id, c]));
@@ -141,7 +158,15 @@
     group: set.group,
     items: set.ids.map((id) => R.ITEM_BY_ID.get(id)).filter(Boolean),
   }));
-  R.KIND_COUNTS = R.ITEMS.reduce((acc, it) => ((acc[it.kind] = (acc[it.kind] || 0) + 1), acc), {});
+  // Base item id -> its shiny versions. Shinies never roll on their own, they
+  // replace the base item at the shiny chance.
+  R.SHINIES = new Map();
+  for (const it of R.ITEMS) {
+    if (!it.shinyOf) continue;
+    if (!R.SHINIES.has(it.shinyOf)) R.SHINIES.set(it.shinyOf, []);
+    R.SHINIES.get(it.shinyOf).push(it);
+  }
+  R.KIND_COUNTS = R.ITEMS.reduce((acc, it) => (it.shinyOf ? acc : ((acc[it.kind] = (acc[it.kind] || 0) + 1), acc)), {});
 
   // Highest tier per category, for the tier limit dropdowns.
   R.MAX_TIER = {};
@@ -172,6 +197,28 @@
     wheel: 'rotmgr.wheel.v1',
     run: 'rotmgr.run.v1',
     bingo: 'rotmgr.bingo.v1',
+    secrets: 'rotmgr.secrets.v1',
+  };
+
+  // Streamer secrets (tip service tokens). Kept apart from settings, so they
+  // are never in pop-out windows, OBS links, shared settings or backups.
+  // They stay in this browser and are only sent to the service they belong to.
+  R.secrets = {
+    get(name) {
+      if (R.overlay) return '';
+      const all = R.store.get(R.KEYS.secrets, {});
+      return typeof all[name] === 'string' ? all[name] : '';
+    },
+    set(name, value) {
+      if (R.overlay) return;
+      const all = R.store.get(R.KEYS.secrets, {});
+      if (value) all[name] = value;
+      else delete all[name];
+      R.store.set(R.KEYS.secrets, all);
+    },
+    count() {
+      return Object.keys(R.store.get(R.KEYS.secrets, {})).length;
+    },
   };
 
   // ---------- Settings ----------
@@ -211,6 +258,7 @@
       include: Object.fromEntries(R.FLAGS.map((f) => [f.id, true])),
       enchants: { on: true, count: 4, unique: false },
       setChance: 0,
+      shinyChance: 5,
       tiers,
       classesOff: [],
       noRepeat: { classes: false, items: false },
@@ -232,7 +280,21 @@
       keysVersion: R.KEYS_VERSION,
       twitch: { channel: '', autoConnect: false, who: 'mods', prefix: '!', voteTime: 30,
         commands: { roll: true, reveal: true, spin: true, vote: true, death: true } },
-      stream: { view: 'follow', bg: 'transparent', scale: 100 },
+      // Viewer events. Rules run when an event matches. Tokens are not here,
+      // they live in R.secrets.
+      events: {
+        mode: 'queue', maxQueue: 20, combineSecs: 10, switchTab: false,
+        se: false, sl: false, seAck: false, slAck: false, pointsAck: false,
+        rules: [
+          { id: 'r1', on: true, event: 'bits', min: 500, each: false, action: 'spin', target: 'curses', cooldown: 0 },
+          { id: 'r2', on: true, event: 'gift', min: 5, each: false, action: 'spin', target: 'curses', cooldown: 0 },
+          { id: 'r3', on: true, event: 'raid', min: 10, each: false, action: 'spin', target: 'dungeons', cooldown: 0 },
+          { id: 'r4', on: true, event: 'tip', min: 5, each: true, action: 'spin', target: 'curses', cooldown: 0 },
+          { id: 'r5', on: false, event: 'command', command: 'curse', who: 'mods', min: 0, action: 'spin', target: 'curses', cooldown: 30 },
+        ],
+      },
+      obs: { port: 4455, ack: false, auto: false, sound: true, scene: '', back: true, onlyEvents: true },
+      stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, history: true, historyCount: 3, layout: {} },
     };
   };
 
@@ -255,6 +317,9 @@
     // Older saves kept the animation toggle at the top level.
     if (typeof saved.animate === 'boolean' && !saved.fx) saved.fx = { animate: saved.animate };
     delete saved.animate;
+    // Shinies used to be a checkbox. Off becomes a 0% chance.
+    if (saved.include && saved.include.shiny === false && saved.shinyChance === undefined) saved.shinyChance = 0;
+    if (saved.include) delete saved.include.shiny;
     // Saves from before hotkeys started off had letter keys set. Clear them once.
     if (saved.keysVersion !== R.KEYS_VERSION) {
       delete saved.keys;
@@ -267,7 +332,17 @@
     // OBS links carry their own settings, and pop-outs follow the main window.
     if (R.overlay && (R.overlay.cfg || R.overlay.sync)) return;
     R.store.set(R.KEYS.settings, R.settings);
+    R.emit('settingsSaved');
   };
+
+  // Settings sent from the main window to an OBS Browser Source.
+  R.applySettings = function (saved) {
+    R.settings = mergeDefaults(R.defaultSettings(), JSON.parse(JSON.stringify(saved)));
+  };
+
+  // Site wide setup. The Twitch Client ID is public by design. It only names
+  // this site to Twitch, it is not a password.
+  R.config = { twitchClientId: '4n8jzq5wlpidmycda0etu4dppbypyf' };
 
   R.settings = R.loadSettings();
 
@@ -275,6 +350,11 @@
 
   const handlers = {};
   R.on = function (name, fn) { (handlers[name] = handlers[name] || []).push(fn); };
+  R.off = function (name, fn) { handlers[name] = (handlers[name] || []).filter((f) => f !== fn); };
+  R.once = function (name, fn) {
+    const wrap = (d) => { R.off(name, wrap); fn(d); };
+    R.on(name, wrap);
+  };
   R.emit = function (name, data) { for (const fn of handlers[name] || []) fn(data); };
 
   // ---------- Seeded RNG ----------
@@ -368,7 +448,7 @@
   R.slotPool = function (cls, category) {
     const slotType = cls.slots[R.CATEGORIES.indexOf(category)];
     const w = R.effectiveWeights();
-    return R.ITEMS.filter((it) => it.slot === slotType && w[it.kind] > 0 && R.itemAllowed(it));
+    return R.ITEMS.filter((it) => !it.shinyOf && it.slot === slotType && w[it.kind] > 0 && R.itemAllowed(it));
   };
 
   // ST sets where every piece fits the class and passes filters.
@@ -571,7 +651,9 @@
       view: R.params.get('view') || 'follow',
       bg: R.params.get('bg') || 'transparent',
       scale: Number(R.params.get('scale')) || 100,
-      sync: R.params.get('sync') === '1',
+      // sync=1 follows the main window in the same browser. sync=obs is an
+      // OBS Browser Source that follows it through OBS WebSocket.
+      sync: R.params.get('sync') === '1' || R.params.get('sync') === 'obs',
       sound: R.params.get('sound') === '1',
       cfg: null,
     };
@@ -586,7 +668,9 @@
 
   // Settings packed into a link, for OBS browser sources that do not share storage.
   R.packSettings = function () {
+    // Never put streamer secrets in a link, even if one ends up in settings.
     const s = { ...R.settings, open: {} };
+    delete s.secrets;
     return btoa(unescape(encodeURIComponent(JSON.stringify(s))));
   };
 
@@ -597,7 +681,9 @@
   R.sync = {
     // Main window: tell overlay windows what happened.
     send(type, data) {
-      if (channel && !R.follower) channel.postMessage({ type, data });
+      if (R.follower) return;
+      if (channel) channel.postMessage({ type, data });
+      if (R.bridge) R.bridge(type, data);
     },
     // Overlay window: ask the main window for everything.
     hello() {
@@ -605,6 +691,8 @@
     },
     listen(fn) {
       if (channel) channel.addEventListener('message', (e) => fn(e.data.type, e.data.data));
+      // OBS hands messages to its Browser Sources as a window event.
+      window.addEventListener('rotmgr', (e) => { if (e.detail && e.detail.type) fn(e.detail.type, e.detail.data); });
     },
   };
 })();

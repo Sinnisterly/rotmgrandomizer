@@ -94,7 +94,7 @@
   let rot = 0;
   let spinning = false;
   let pendingRemove = null;
-  let reelOffset = 0;
+  let reelPos = 0; // reel position in cards, so a resize mid spin cannot move the result
   let reelStrip = [];
   const imgCache = new Map();
 
@@ -246,9 +246,12 @@
     });
   }
 
-  function setReel(offset) {
-    reelOffset = offset;
-    $('reelTrack').style.transform = `translateX(${-offset}px)`;
+  // Puts card number pos (fractions allowed) under the marker. The pixel
+  // offset is worked out from the reel's width right now, every time.
+  function setReel(pos) {
+    reelPos = pos;
+    const w = $('reelBox').clientWidth || 600;
+    $('reelTrack').style.transform = `translateX(${-(pos * REEL_CELL + REEL_CELL / 2 - w / 2)}px)`;
   }
 
   function idleReel() {
@@ -257,8 +260,7 @@
     const strip = [];
     while (strip.length < 30) strip.push(...R.shuffle(items));
     buildReel(strip.slice(0, 30));
-    const w = $('reelBox').clientWidth || 600;
-    setReel(10 * REEL_CELL + REEL_CELL / 2 - w / 2);
+    setReel(10);
   }
 
   // ---------- Render ----------
@@ -427,8 +429,12 @@
   const ease = (t) => 1 - Math.pow(1 - t, 4);
 
   // Main window: pick a result and spin to it.
-  function spin() {
+  let autoClose = false;
+
+  // opts.auto: the result pop-up closes on its own (used by viewer events).
+  function spin(opts) {
     if (R.follower || spinning) return;
+    autoClose = !!(opts && opts.auto === true);
     applyPendingRemove();
     view = buildView();
     if (!view.items.length) {
@@ -458,6 +464,7 @@
   function run(plan) {
     spinning = true;
     R.closeModal();
+    R.emit('spinStart', { auto: autoClose && !R.follower });
     $('wheelResult').textContent = '';
     $('spinBtn').disabled = true;
     $('wheelHub').disabled = true;
@@ -504,16 +511,16 @@
       $('wheelBox').hidden = true;
       $('reelBox').hidden = false;
       buildReel(plan.strip.map((i) => items[i]));
-      const w = $('reelBox').clientWidth || 600;
-      const start = 2 * REEL_CELL + REEL_CELL / 2 - w / 2;
-      const end = 46 * REEL_CELL + REEL_CELL / 2 - w / 2 + plan.jitter * (REEL_CELL - 20);
+      // Positions are in cards. The jitter keeps the stop inside the winning card.
+      const start = 2;
+      const end = 46 + plan.jitter * ((REEL_CELL - 20) / REEL_CELL);
       setReel(start);
       let lastIdx = -1;
       const t0 = performance.now();
       const step = (now) => {
         const t = duration ? Math.min(1, (now - t0) / duration) : 1;
         setReel(start + (end - start) * ease(t));
-        const idx = Math.floor((reelOffset + w / 2) / REEL_CELL);
+        const idx = Math.floor(reelPos + 0.5);
         if (idx !== lastIdx) {
           lastIdx = idx;
           R.sound.play('reelTick');
@@ -531,6 +538,7 @@
 
   function done(result) {
     spinning = false;
+    R.emit('spinDone', result);
     $('wheelStage').classList.remove('is-spinning');
     $('spinBtn').disabled = false;
     $('wheelHub').disabled = false;
@@ -546,7 +554,10 @@
     }
     applyResult(result);
     if (view.elim) pendingRemove = { preset: view.id, id: result.id };
-    if (R.settings.wheel.popup) showResult(result, true);
+    if (R.settings.wheel.popup) {
+      showResult(result, true);
+      if (autoClose) setTimeout(() => R.closeModal(), (Number(R.settings.stream.hold) || 6) * 1000);
+    }
     else setTimeout(() => { if (!spinning) { applyPendingRemove(); render(); } }, 1400);
   }
 
@@ -640,16 +651,17 @@
 
   // Switches to the wheel tab with a list and spins it.
   // Spinning dungeons from here always uses the full list from the filters.
-  function spinPreset(id) {
+  // opts.stay keeps this page on its tab, opts.auto closes the result on its own.
+  function spinPreset(id, opts = {}) {
     if (R.follower) return;
-    R.main.showTab('wheel');
+    if (!opts.stay) R.main.showTab('wheel');
     if (id && id !== R.settings.wheel.preset) setPreset(id);
     else if (id === 'dungeons' && data.group) {
       data.group = null;
       save();
       render();
     }
-    setTimeout(spin, 150);
+    setTimeout(() => spin(opts), 150);
   }
 
   // ---------- Sync ----------
@@ -676,11 +688,12 @@
     $('spinBtn').addEventListener('click', spin);
     $('wheelHub').addEventListener('click', spin);
     $('wheelRestoreAll').addEventListener('click', restoreAll);
-    let resizeTimer = null;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => { if (!spinning && view && !$('tab-wheel').hidden) render(); }, 150);
-    });
+    // Keep the wheel and reel lined up when their size changes for any reason:
+    // window resize, phone rotation, the settings panel, or an OBS source.
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(() => { if (view && view.items.length && !spinning) drawWheel(); }).observe($('wheelBox'));
+      new ResizeObserver(() => { if (reelStrip.length) setReel(reelPos); }).observe($('reelBox'));
+    }
   }
 
   R.wheel = {
@@ -691,6 +704,9 @@
     setPreset,
     onRemote,
     isSpinning: () => spinning,
+    presetList: () => presets().map((p) => [p.id, p.name]),
+    // What the wheel shows now, for windows that follow this one.
+    snapshot: () => (R.follower ? view : buildView()),
     data,
     save,
   };

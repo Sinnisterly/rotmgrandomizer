@@ -143,6 +143,13 @@
       note(N.C6, 0.9, { vol: 0.12, t: 0.42 });
       note(N.E6, 0.9, { vol: 0.07, t: 0.42 });
     }],
+    shiny: ['fanfare', () => {
+      noise(0.7, { freq: 7000, filter: 'highpass', vol: 0.06 });
+      arp([N.C5, N.E5, N.G5, N.C6, N.E6, N.G6, N.E6, N.G6], 0.055, 0.22, { vol: 0.1, type: 'triangle' });
+      note(N.C6, 1, { vol: 0.11, t: 0.45 });
+      note(N.G5, 1, { vol: 0.07, t: 0.45 });
+      note(N.E6, 1, { vol: 0.06, t: 0.45 });
+    }],
     death: ['events', () => arp([N.G4, 370, 349, 330], 0.18, 0.3, { vol: 0.12, type: 'triangle' })],
     curse: ['events', () => {
       note(110, 0.9, { vol: 0.14, type: 'sawtooth', detune: 10 });
@@ -355,8 +362,11 @@
     return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
   }
 
+  // A shiny bag is drawn pink and cycles through colors with CSS.
+  const SHINY_BAG = { color: '#ff5fd2', light: '#ffc4ef' };
+
   R.fx.bagSvg = function (bagId) {
-    const bag = R.BAGS[bagId] || R.BAGS.brown;
+    const bag = bagId === 'shiny' ? SHINY_BAG : R.BAGS[bagId] || R.BAGS.brown;
     const colors = {
       X: '#141414',
       O: bag.color,
@@ -382,7 +392,10 @@
     if (openModal) openModal.close(true);
     const box = el('div', { class: 'modal-box ' + (opts.className || ''), role: 'dialog', 'aria-modal': 'true' }, [content]);
     const back = el('div', { class: 'modal-back' }, [box]);
-    document.body.appendChild(back);
+    // Stream windows show pop-ups inside their alert area.
+    const host = R.alertHost && R.alertHost.isConnected ? R.alertHost : document.body;
+    if (host !== document.body) back.classList.add('in-host');
+    host.appendChild(back);
     requestAnimationFrame(() => back.classList.add('show'));
     const prevFocus = document.activeElement;
 
@@ -395,12 +408,14 @@
       back.classList.remove('show');
       setTimeout(() => back.remove(), 180);
       if (openModal && openModal.box === box) openModal = null;
+      R.emit('modalClose');
       if (prevFocus && prevFocus.focus) prevFocus.focus({ preventScroll: true });
       if (!silent && opts.onClose) opts.onClose();
     }
     back.addEventListener('click', (e) => { if (e.target === back) close(); });
     document.addEventListener('keydown', onKey, true);
     openModal = { box, close };
+    R.emit('modalOpen');
     setTimeout(() => {
       const f = box.querySelector('[data-focus]') || box.querySelector('button');
       if (f) f.focus({ preventScroll: true });

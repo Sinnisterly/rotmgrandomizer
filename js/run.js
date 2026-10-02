@@ -256,7 +256,9 @@
   // Overlay windows replay the counter effects.
   function remoteFx(msg) {
     const c = data.counters.find((x) => x.id === msg.id);
-    const node = document.querySelector(`[data-counter="${msg.id}"] .counter-value`);
+    // A stream window shows the counter in its layout, not in the hidden tab.
+    const node = document.querySelector(`.sw [data-counter="${msg.id}"] .counter-value`)
+      || document.querySelector(`[data-counter="${msg.id}"] .counter-value`);
     if (c && node) counterFx(c, node, msg.n);
   }
 

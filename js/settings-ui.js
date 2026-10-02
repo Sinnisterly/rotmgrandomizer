@@ -92,6 +92,9 @@
         weights.appendChild(row);
       }
       b.appendChild(weights);
+      const shinyRow = R.range('Shiny chance', s().shinyChance, 0, 100, 1, (v) => { s().shinyChance = v; poolChanged(); }, { fmt: (v) => v + '%' });
+      shinyRow.classList.add('weight-row', 'shiny');
+      b.append(shinyRow, el('p', { class: 'hint', text: `When an item with a shiny version rolls (${R.SHINIES.size} items have one), this is the chance it becomes shiny. 0 turns shinies off.` }));
       const inc = el('div', { class: 'check-list' });
       for (const f of R.FLAGS) {
         const n = R.ITEMS.filter((it) => it.flags.includes(f.id)).length;

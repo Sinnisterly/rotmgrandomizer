@@ -225,6 +225,19 @@ function parseItemPages() {
   return map;
 }
 
+// Base names of items that have a shiny version, from the wiki shiny list.
+// Shiny entries are written as "Name (Shiny)". Returns null if the page is missing.
+function parseShinyPage() {
+  const html = readWiki('shiny-items');
+  if (!html) return null;
+  const names = new Set();
+  for (const m of html.matchAll(/alt="([^"]+)"/g)) {
+    const n = norm(m[1]);
+    if (/\(S\.?H\.?I\.?N\.?Y\.?\)$/i.test(n)) names.add(key(n.replace(/\s*\(S\.?H\.?I\.?N\.?Y\.?\)$/i, '')));
+  }
+  return names;
+}
+
 // ST sets from the set list and one page per set.
 // Returns [{ name, group, keys: [item name keys] }].
 function parseSetPages() {
@@ -344,13 +357,26 @@ function build(meta) {
     kept.push({ id, name, slot, tier, x, y, kind, flags });
   }
 
-  // Shiny: RealmEye gives shiny variants the same name as the base item.
-  // The lowest id is the base item, the rest are shiny.
+  // Shiny: RealmEye gives shiny variants the same name as the base item and
+  // their own sprite. The lowest id is the base item. Rows with the same name
+  // and the same sprite are duplicates, not shinies, so they are dropped.
   const byName = new Map();
+  const dupes = [];
   for (const it of kept.sort((a, b) => a.id - b.id)) {
     const k = `${it.slot}|${key(it.name)}`;
-    if (byName.has(k)) it.flags.push('shiny');
-    else byName.set(k, it);
+    const base = byName.get(k);
+    if (!base) { byName.set(k, it); continue; }
+    if (base.x === it.x && base.y === it.y) { it.dupe = true; dupes.push(it.name); continue; }
+    it.flags.push('shiny');
+    it.shinyOf = base.id;
+  }
+  for (let i = kept.length - 1; i >= 0; i--) if (kept[i].dupe) kept.splice(i, 1);
+  if (dupes.length) console.log(`Dropped ${dupes.length} duplicate rows, e.g. ${[...new Set(dupes)].slice(0, 6).join('; ')}`);
+  // Check against the wiki list of shinies. Only a warning, the sprite check decides.
+  const shinyNames = parseShinyPage();
+  if (shinyNames) {
+    const missing = [...new Set(kept.filter((it) => it.shinyOf && !shinyNames.has(key(it.name))).map((it) => it.name))];
+    if (missing.length) console.warn(`WARN: ${missing.length} shinies are not on the wiki shiny list: ${missing.slice(0, 8).join('; ')}`);
   }
 
   // ST sets: match item names on each set page to base (non shiny) ST items,
@@ -383,7 +409,12 @@ function build(meta) {
     meta: { ...meta, generated: new Date().toISOString(), itemCount: kept.length },
     slotTypes,
     classes,
-    items: kept.map((it) => [it.id, it.name, it.slot, it.tier, it.x, it.y, it.kind, it.flags.join(',')]),
+    // Shinies get a 9th field: the id of their base item.
+    items: kept.map((it) => {
+      const row = [it.id, it.name, it.slot, it.tier, it.x, it.y, it.kind, it.flags.join(',')];
+      if (it.shinyOf) row.push(it.shinyOf);
+      return row;
+    }),
     sets,
   };
 }

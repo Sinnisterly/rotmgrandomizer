@@ -28,6 +28,7 @@ Extras, all in the settings for the tab:
 - **Reroll limit**: a set number of rerolls per run.
 - **No repeats**: classes or items you already rolled stay out until the list is used up.
 - **Daily roll**: everyone gets the same build today.
+- **Shiny chance**: when an item that has a shiny version rolls, this is the chance it becomes shiny (5% by default). Shinies use their real sprite and get their own reveal.
 - **Odds**: shows how rare your exact build was.
 
 ## Wheel
@@ -41,9 +42,14 @@ Pick a list and press **Spin**. Short lists use a wheel. Long lists, like dungeo
 
 ## Streaming
 
-- **Pop-out window**: opens a clean window that copies what you do on the main page. Capture it in OBS with Window Capture.
-- **OBS link**: add it as a Browser Source. The background can be transparent, green or magenta. OBS runs its own browser, so this is a separate copy that you control with Twitch commands or OBS Interact. To show exactly what you do on the main page, use the pop-out window.
+- **Pop-out windows**: each tab can open in its own clean window that copies what you do on the main page, live. Capture them in OBS with Window Capture, on a green or magenta background with a Chroma Key filter. A tab pop-out can jump to the wheel while it spins, then go back on its own.
+- **Alerts window**: stays empty until a spin or reveal happens, then pops up, shows the result and hides again.
+- **Show on stream**: pick the pieces you want on screen (timer, counters, curses, build, rules, alerts, recent events, bingo, vote) and drag them into place on a 1920 by 1080 layout. The stream window shows them live.
+- **OBS WebSocket**: turn on the WebSocket server in OBS (Tools, then WebSocket Server Settings) and connect from the Stream tab. OBS Browser Sources then follow the main page live with a see-through background, and OBS can switch to a scene of your choice while the wheel spins.
+- **Run in OBS**: a link that runs the randomizer inside OBS by itself, with no browser tab open. Bits, subs, gift subs, raids and chat commands work there. Tips and channel points do not, because tokens are never put in a link.
 - **Twitch chat**: type your channel and press Connect. It only reads chat, so no login is needed. Chat can use `!roll`, `!reveal`, `!spin`, `!vote` and `!death`, and vote 1 to keep or 2 to reroll. You choose who can use commands.
+- **Viewer events**: bits, subs, gift subs and raids come from Twitch chat with no login. Tips can come from StreamElements or Streamlabs with a token you paste in. Channel points work after Log in with Twitch, which only asks to read redemptions. Rules decide what each event does, like "When bits is at least 500, spin Curses". Events play one at a time, can be combined when they arrive close together, or can wait for you to approve each one. A test button sends pretend events so you can try it without going live.
+- **Privacy**: the site has no server and collects nothing. Tokens are saved only in your browser, shown only behind an eye button, and never put in pop-out windows, OBS links or shared settings. The Stream tab lists everything the site saves and connects to, with buttons to delete it.
 - **Hotkeys**: start off, so they never clash with game keys like WASD. Set the ones you want in Settings > Hotkeys. F keys and the numpad are good picks. They work as normal key presses from a Stream Deck, while the page is the active window.
 
 ## Look and sound
