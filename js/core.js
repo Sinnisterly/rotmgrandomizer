@@ -342,7 +342,7 @@
 
   // Site wide setup. The Twitch Client ID is public by design. It only names
   // this site to Twitch, it is not a password.
-  R.config = { twitchClientId: '' };
+  R.config = { twitchClientId: '4n8jzq5wlpidmycda0etu4dppbypyf' };
 
   R.settings = R.loadSettings();
 
