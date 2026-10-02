@@ -392,7 +392,10 @@
     if (openModal) openModal.close(true);
     const box = el('div', { class: 'modal-box ' + (opts.className || ''), role: 'dialog', 'aria-modal': 'true' }, [content]);
     const back = el('div', { class: 'modal-back' }, [box]);
-    document.body.appendChild(back);
+    // Stream windows show pop-ups inside their alert area.
+    const host = R.alertHost && R.alertHost.isConnected ? R.alertHost : document.body;
+    if (host !== document.body) back.classList.add('in-host');
+    host.appendChild(back);
     requestAnimationFrame(() => back.classList.add('show'));
     const prevFocus = document.activeElement;
 
@@ -405,12 +408,14 @@
       back.classList.remove('show');
       setTimeout(() => back.remove(), 180);
       if (openModal && openModal.box === box) openModal = null;
+      R.emit('modalClose');
       if (prevFocus && prevFocus.focus) prevFocus.focus({ preventScroll: true });
       if (!silent && opts.onClose) opts.onClose();
     }
     back.addEventListener('click', (e) => { if (e.target === back) close(); });
     document.addEventListener('keydown', onKey, true);
     openModal = { box, close };
+    R.emit('modalOpen');
     setTimeout(() => {
       const f = box.querySelector('[data-focus]') || box.querySelector('button');
       if (f) f.focus({ preventScroll: true });

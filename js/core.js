@@ -258,7 +258,7 @@
       keysVersion: R.KEYS_VERSION,
       twitch: { channel: '', autoConnect: false, who: 'mods', prefix: '!', voteTime: 30,
         commands: { roll: true, reveal: true, spin: true, vote: true, death: true } },
-      stream: { view: 'follow', bg: 'transparent', scale: 100 },
+      stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, layout: {} },
     };
   };
 

@@ -200,8 +200,16 @@
 
       <!-- Stream -->
       <section class="tab-panel" id="tab-stream" role="tabpanel" aria-label="Stream tools" hidden>
-        <details class="panel fold" data-fold="overlay" open>
-          <summary>Overlay</summary>
+        <details class="panel fold" data-fold="popouts" open>
+          <summary>Pop-out windows</summary>
+          <div id="popoutTools"></div>
+        </details>
+        <details class="panel fold" data-fold="stage" open>
+          <summary>Show on stream</summary>
+          <div id="stageTools"></div>
+        </details>
+        <details class="panel fold" data-fold="overlay">
+          <summary>OBS browser source</summary>
           <div id="overlayTools"></div>
         </details>
         <details class="panel fold" data-fold="twitch" open>
@@ -257,6 +265,7 @@
   <script src="js/bingo.js"></script>
   <script src="js/twitch.js"></script>
   <script src="js/stream.js"></script>
+  <script src="js/layout.js"></script>
   <script src="js/settings-ui.js"></script>
   <script src="js/main.js"></script>
 </body>

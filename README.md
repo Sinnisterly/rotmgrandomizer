@@ -42,7 +42,9 @@ Pick a list and press **Spin**. Short lists use a wheel. Long lists, like dungeo
 
 ## Streaming
 
-- **Pop-out window**: opens a clean window that copies what you do on the main page. Capture it in OBS with Window Capture.
+- **Pop-out windows**: each tab can open in its own clean window that copies what you do on the main page, live. Capture them in OBS with Window Capture, on a green or magenta background with a Chroma Key filter. A tab pop-out can jump to the wheel while it spins, then go back on its own.
+- **Alerts window**: stays empty until a spin or reveal happens, then pops up, shows the result and hides again.
+- **Show on stream**: pick the pieces you want on screen (timer, counters, curses, build, rules, alerts, recent events, bingo, vote) and drag them into place on a 1920 by 1080 layout. The stream window shows them live.
 - **OBS link**: add it as a Browser Source. The background can be transparent, green or magenta. OBS runs its own browser, so this is a separate copy that you control with Twitch commands or OBS Interact. To show exactly what you do on the main page, use the pop-out window.
 - **Twitch chat**: type your channel and press Connect. It only reads chat, so no login is needed. Chat can use `!roll`, `!reveal`, `!spin`, `!vote` and `!death`, and vote 1 to keep or 2 to reroll. You choose who can use commands.
 - **Hotkeys**: start off, so they never clash with game keys like WASD. Set the ones you want in Settings > Hotkeys. F keys and the numpad are good picks. They work as normal key presses from a Stream Deck, while the page is the active window.

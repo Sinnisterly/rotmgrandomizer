@@ -56,7 +56,8 @@
     });
   }
 
-  function showTab(id) {
+  // opts.force lets a locked pop-out jump to the wheel and back.
+  function showTab(id, opts = {}) {
     if (!TABS.some((t) => t.id === id)) id = 'randomizer';
     // The Stream tab is all controls, so an overlay would be blank on it.
     if (R.overlay && id === 'stream') {
@@ -64,7 +65,7 @@
       id = 'randomizer';
     }
     // An overlay locked to one view never changes tab.
-    if (R.overlay && R.overlay.view !== 'follow' && R.stream.overlayTab(R.overlay.view) !== id) return;
+    if (R.overlay && !opts.force && R.overlay.view !== 'follow' && R.stream.overlayTab(R.overlay.view) !== id) return;
     const changed = R.settings.tab !== id;
     R.settings.tab = id;
     for (const t of TABS) {
@@ -173,6 +174,7 @@
   R.run.init();
   R.bingo.init();
   R.stream.init();
+  R.layout.init();
   R.twitch.init();
   bindFolds();
   renderDataInfo();

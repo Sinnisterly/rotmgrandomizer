@@ -460,6 +460,7 @@
   function run(plan) {
     spinning = true;
     R.closeModal();
+    R.emit('spinStart');
     $('wheelResult').textContent = '';
     $('spinBtn').disabled = true;
     $('wheelHub').disabled = true;
@@ -533,6 +534,7 @@
 
   function done(result) {
     spinning = false;
+    R.emit('spinDone', result);
     $('wheelStage').classList.remove('is-spinning');
     $('spinBtn').disabled = false;
     $('wheelHub').disabled = false;
@@ -694,6 +696,8 @@
     setPreset,
     onRemote,
     isSpinning: () => spinning,
+    // What the wheel shows now, for windows that follow this one.
+    snapshot: () => (R.follower ? view : buildView()),
     data,
     save,
   };

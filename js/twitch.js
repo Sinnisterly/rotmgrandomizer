@@ -28,6 +28,7 @@
   let retry = null;
   let seen = []; // recent commands
   let vote = null;
+  let shown = null; // the vote as last drawn, also in windows that follow
   let voteTimer = null;
 
   // ---------- Connection ----------
@@ -215,6 +216,7 @@
   function renderVote(remote) {
     const v = remote !== undefined ? remote : vote ? { ...vote, tally: tally() } : null;
     if (remote === undefined) R.sync.send('vote', v);
+    shown = v;
     const p = $('votePanel');
     p.hidden = !v;
     if (!v) return;
@@ -326,5 +328,6 @@
     parse,
     COMMANDS,
     status: () => status,
+    currentVote: () => shown,
   };
 })();
