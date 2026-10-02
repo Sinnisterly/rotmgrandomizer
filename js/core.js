@@ -293,7 +293,7 @@
           { id: 'r5', on: false, event: 'command', command: 'curse', who: 'mods', min: 0, action: 'spin', target: 'curses', cooldown: 30 },
         ],
       },
-      stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, layout: {} },
+      stream: { view: 'follow', bg: 'transparent', scale: 100, popBg: 'green', hold: 6, jump: true, history: true, historyCount: 3, layout: {} },
     };
   };
 

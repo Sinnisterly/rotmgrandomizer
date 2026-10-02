@@ -303,6 +303,9 @@
       R.checkbox('Jump to the wheel for spins', s.jump, (on) => { s.jump = on; save(); },
         { small: 'A tab pop-out, like Run, shows the wheel while it spins, then goes back on its own.' }),
       R.range('Show results for', s.hold, 2, 20, 1, (v) => { s.hold = v; save(); }, { fmt: (v) => v + 's' }),
+      R.checkbox('Show earlier results under the wheel', s.history, (on) => { s.history = on; save(); R.layout.renderHistory(); },
+        { small: 'When one event gives several spins, like 1500 bits on a 500 bit rule, the earlier results stay on screen below the latest one.' }),
+      R.range('Earlier results', s.historyCount, 1, 10, 1, (v) => { s.historyCount = v; save(); R.layout.renderHistory(); }),
     );
 
     // Show on stream editor.

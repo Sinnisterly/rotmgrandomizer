@@ -1176,3 +1176,11 @@ input[type=number] { padding: 6px 8px; background: var(--bg); border: 2px solid 
 .alert-banner span { font: 600 1rem var(--head); }
 .alert-host .alert-banner { margin: 0 auto 10px; max-width: 560px; }
 @keyframes banner-in { from { transform: translateY(-16px); opacity: 0; } }
+
+/* Earlier results under the wheel */
+.spin-history { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+.spin-history-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.spin-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--panel-3); border: 2px solid var(--edge-hi); clip-path: var(--notch); font: 600 0.95rem var(--head); }
+.spin-chip i { width: 24px; height: 24px; background: center / contain no-repeat; image-rendering: pixelated; }
+.spin-chip.is-curse { border-color: #6b2424; color: #ff8a80; }
+body.overlay .spin-history .label { text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000; }

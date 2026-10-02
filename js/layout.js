@@ -217,10 +217,50 @@
   }
 
   // Shows the alert area while something happens, hides it after.
+  // ---------- Earlier results ----------
+  // When one event gives several spins, the earlier results stay visible
+  // under the wheel. Stream windows start a fresh list for each alert.
+
+  let results = [];
+
+  function renderHistory() {
+    const box = $('spinHistory');
+    if (!box) return;
+    const s = R.settings.stream;
+    const earlier = results.slice(1, 1 + (Number(s.historyCount) || 3));
+    box.hidden = !s.history || !earlier.length;
+    box.innerHTML = '';
+    if (box.hidden) return;
+    box.appendChild(el('span', { class: 'label', text: 'Earlier results' }));
+    const list = el('div', { class: 'spin-history-list' });
+    for (const r of earlier) {
+      const chip = el('div', { class: 'spin-chip' + (r.preset === 'curses' ? ' is-curse' : '') });
+      if (r.img) {
+        const pic = el('i');
+        pic.style.backgroundImage = `url("${r.img}")`;
+        chip.appendChild(pic);
+      }
+      chip.appendChild(el('span', { text: r.label }));
+      list.appendChild(chip);
+    }
+    box.appendChild(list);
+  }
+
+  // Several spins from one event have short gaps between them. The alert
+  // stays up through gaps under GAP ms, and the list clears after that.
+  const GAP = 1500;
+  let lastOn = 0;
+
   function tick() {
     if (live && live.host) {
-      const on = alertActive();
+      const now = Date.now();
+      if (alertActive()) lastOn = now;
+      const on = now - lastOn < GAP;
       live.host.classList.toggle('active', on);
+      if (!on && results.length) {
+        results = [];
+        renderHistory();
+      }
       $('wheelStage').classList.toggle('alert-idle', !R.wheel.isSpinning() && Date.now() >= holdUntil);
     }
     // Tab pop-outs that jumped to the wheel go back when it is over.
@@ -282,7 +322,14 @@
         R.main.showTab('wheel', { force: true });
       }
     });
-    R.on('spinDone', () => { holdUntil = Date.now() + hold(); });
+    R.on('spinDone', (result) => {
+      holdUntil = Date.now() + hold();
+      if (!result) return;
+      results.unshift({ label: result.label, img: result.img, preset: R.wheel.snapshot() ? R.wheel.snapshot().id : '' });
+      results = results.slice(0, 11);
+      renderHistory();
+    });
+    R.on('settingsLoaded', renderHistory);
     // In stream windows, pop-ups close on their own after the hold time.
     R.on('modalOpen', () => {
       clearTimeout(modalTimer);
@@ -394,6 +441,7 @@
 
   R.layout = {
     banner,
+    renderHistory,
     init() {
       bindAlerts();
       const o = R.overlay;
